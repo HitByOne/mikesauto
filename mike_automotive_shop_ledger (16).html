@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mike Automotive — Shop Ledger</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --bg: #E9E6DD;
+  --panel: #FFFFFF;
+  --ink: #1C232C;
+  --ink-soft: #5B6472;
+  --steel: #212B38;
+  --steel-2: #2C3849;
+  --amber: #F2A400;
+  --amber-dark: #C9860A;
+  --red: #C6432E;
+  --green: #3E8E5B;
+  --line: #D8D3C6;
+  --radius: 3px;
+  --shadow: 0 1px 0 rgba(0,0,0,.05), 0 8px 20px -12px rgba(20,20,20,.25);
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Inter',sans-serif;-webkit-font-smoothing:antialiased;}
+.mono{font-family:'IBM Plex Mono',monospace;}
+h1,h2,h3,.disp{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.03em;}
+
+/* ===== Header ===== */
+.topbar{
+  background: repeating-linear-gradient(135deg, var(--steel) 0px, var(--steel) 18px, var(--steel-2) 18px, var(--steel-2) 36px);
+  color:#fff; padding:0; position:relative; border-bottom:4px solid var(--amber);
+}
+.topbar-inner{
+  background:var(--steel); padding:18px 28px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+}
+.brand{display:flex;align-items:center;gap:14px;}
+.brand-badge{
+  width:46px;height:46px;border-radius:50%;background:var(--amber);color:var(--steel);
+  display:flex;align-items:center;justify-content:center;font-family:'Oswald';font-weight:700;font-size:19px;
+  border:3px solid #fff2;flex-shrink:0;
+}
+.brand-text h1{color:#fff;font-size:22px;margin:0;line-height:1;font-weight:700;}
+.brand-text .sub{color:#ffffffa8;font-size:11.5px;letter-spacing:.12em;margin-top:4px;font-family:'IBM Plex Mono';}
+nav.tabs{display:flex;gap:0;background:#00000030;border-radius:var(--radius);overflow:hidden;}
+nav.tabs button{
+  border:none;background:transparent;color:#ffffffb0;padding:11px 22px;font-family:'Oswald';font-weight:600;
+  font-size:13.5px;letter-spacing:.06em;text-transform:uppercase;cursor:pointer;transition:.15s;
+}
+nav.tabs button.active{background:var(--amber);color:var(--steel);}
+nav.tabs button:not(.active):hover{background:#ffffff14;color:#fff;}
+
+/* ===== Layout ===== */
+.wrap{max-width:1180px;margin:0 auto;padding:26px 28px 70px;}
+.view{display:none;animation:fadein .25s ease;}
+.view.active{display:block;}
+@keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+/* ===== KPI cards ===== */
+.kpi-row{display:grid;grid-template-columns:1.3fr repeat(3,1fr);gap:14px;margin-bottom:22px;}
+@media(max-width:900px){.kpi-row{grid-template-columns:1fr 1fr;}}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);}
+.kpi .label{font-size:10.5px;letter-spacing:.1em;color:var(--ink-soft);text-transform:uppercase;font-weight:600;margin-bottom:6px;}
+.kpi .value{font-family:'IBM Plex Mono';font-size:26px;font-weight:600;}
+.kpi .value.green{color:var(--green);}
+.kpi .sub2{font-size:11px;color:var(--ink-soft);margin-top:4px;}
+
+.gauge-kpi{display:flex;align-items:center;gap:16px;}
+.gauge-kpi svg{flex-shrink:0;}
+.gauge-num{font-family:'IBM Plex Mono';font-size:24px;font-weight:600;}
+
+/* ===== Panels ===== */
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;}
+.panel-head{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.panel-head h3{margin:0;font-size:15px;letter-spacing:.05em;}
+.panel-body{padding:18px;}
+.charts-row{display:grid;grid-template-columns:1.4fr 1fr;gap:14px;}
+@media(max-width:900px){.charts-row{grid-template-columns:1fr;}}
+
+/* ===== Table ===== */
+.search-input{
+  border:1px solid var(--line);border-radius:var(--radius);padding:8px 12px;font-family:'Inter';font-size:13px;
+  min-width:220px;background:#fbfaf7;
+}
+.search-input:focus{outline:2px solid var(--amber);outline-offset:-1px;}
+table{width:100%;border-collapse:collapse;font-size:13px;}
+thead th{
+  text-align:left;font-family:'Oswald';font-weight:600;font-size:11px;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--ink-soft);padding:9px 12px;border-bottom:2px solid var(--steel);cursor:pointer;user-select:none;white-space:nowrap;
+}
+thead th:hover{color:var(--ink);}
+thead th.sorted{color:var(--amber-dark);}
+tbody td{padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top;}
+tbody tr:hover{background:#F7F4EC;}
+td.num{font-family:'IBM Plex Mono';text-align:right;white-space:nowrap;}
+.tag-margin{display:inline-block;padding:2px 7px;border-radius:20px;font-family:'IBM Plex Mono';font-size:11px;font-weight:600;}
+.tag-margin.hi{background:#E4F2E9;color:var(--green);}
+.tag-margin.mid{background:#FCEFD8;color:var(--amber-dark);}
+.tag-margin.lo{background:#FBE7E3;color:var(--red);}
+.custom-badge{background:var(--amber);color:var(--steel);font-size:9.5px;padding:1px 6px;border-radius:3px;font-weight:700;margin-left:6px;vertical-align:middle;letter-spacing:.03em;}
+.table-scroll{max-height:520px;overflow:auto;border-top:1px solid var(--line);}
+.table-scroll thead{position:sticky;top:0;background:#fff;z-index:2;}
+
+/* ===== Invoice / ticket ===== */
+.ticket{
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+  position:relative;overflow:hidden;
+}
+.ticket::before{
+  content:"";position:absolute;top:0;left:0;right:0;height:6px;
+  background:repeating-linear-gradient(90deg,var(--amber) 0 14px, transparent 14px 24px);
+}
+.ticket-head{padding:22px 24px 16px;border-bottom:2px dashed var(--line);display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;}
+.ticket-head h2{margin:0 0 3px;font-size:22px;}
+.ticket-head .addr{font-size:12px;color:var(--ink-soft);font-family:'IBM Plex Mono';}
+.wo-stamp{
+  border:3px solid var(--red);color:var(--red);font-family:'Oswald';font-weight:700;font-size:13px;
+  padding:6px 14px;transform:rotate(-4deg);letter-spacing:.1em;border-radius:4px;white-space:nowrap;
+}
+.form-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:18px 24px;border-bottom:1px solid var(--line);}
+@media(max-width:800px){.form-grid{grid-template-columns:1fr 1fr;}}
+.field label{display:block;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);font-weight:600;margin-bottom:5px;}
+.field-group-label{
+  grid-column:1/-1;font-family:'Oswald';font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber-dark);
+  font-weight:600;border-top:1px solid var(--line);padding-top:12px;margin-top:2px;
+}
+.field input, .field select{
+  width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);font-family:'Inter';font-size:13.5px;background:#fbfaf7;
+}
+.field input:focus, .field select:focus{outline:2px solid var(--amber);outline-offset:-1px;}
+.field textarea{
+  width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);font-family:'Inter';font-size:13.5px;
+  background:#fbfaf7;resize:vertical;line-height:1.4;
+}
+.field textarea:focus{outline:2px solid var(--amber);outline-offset:-1px;}
+.issue-grid{display:grid;grid-template-columns:2fr 1fr;gap:14px;}
+@media(max-width:800px){.issue-grid{grid-template-columns:1fr;}}
+.dtc-input-row{display:flex;gap:8px;}
+.dtc-input-row input{flex:1;}
+.dtc-input-row .btn{white-space:nowrap;}
+.dtc-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px;}
+.dtc-chip{
+  background:#FCEFD8;color:var(--amber-dark);font-family:'IBM Plex Mono';font-size:12px;font-weight:600;
+  padding:4px 6px 4px 10px;border-radius:20px;display:inline-flex;align-items:center;gap:6px;
+}
+.dtc-chip button{background:none;border:none;color:var(--amber-dark);cursor:pointer;font-size:13px;padding:2px 4px;line-height:1;}
+.dtc-chip button:hover{color:var(--red);}
+.pricelist-box{margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);}
+.pricelist-toggle{
+  background:none;border:none;color:var(--amber-dark);font-family:'Oswald';font-weight:600;font-size:12px;
+  letter-spacing:.03em;text-transform:uppercase;cursor:pointer;padding:4px 0;
+}
+.pricelist-toggle:hover{text-decoration:underline;}
+
+.lines-section{padding:18px 24px;border-bottom:1px solid var(--line);}
+.lines-section h4{font-family:'Oswald';font-size:13px;letter-spacing:.06em;text-transform:uppercase;margin:0 0 10px;color:var(--steel);
+  display:flex;align-items:center;justify-content:space-between;}
+.line-table{width:100%;border-collapse:collapse;margin-bottom:8px;}
+.line-table th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);text-align:left;padding:4px 6px;font-weight:600;}
+.line-table td{padding:4px 6px;}
+.line-table input{width:100%;padding:6px 7px;border:1px solid var(--line);border-radius:3px;font-size:13px;background:#fbfaf7;}
+.line-table .li-total{font-family:'IBM Plex Mono';font-size:13px;text-align:right;white-space:nowrap;padding-right:4px;}
+.li-remove{background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px;}
+.li-remove:hover{background:#FBE7E3;border-radius:3px;}
+
+.job-group{
+  border:1px solid var(--line);border-left:4px solid var(--amber);border-radius:var(--radius);
+  padding:14px 16px;margin-bottom:14px;background:#FBFAF7;
+}
+.job-group-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.job-group-head .job-num{
+  font-family:'Oswald';font-weight:700;font-size:11.5px;letter-spacing:.06em;color:var(--amber-dark);
+  background:#FCEFD8;padding:4px 9px;border-radius:20px;white-space:nowrap;
+}
+.job-group-head .job-name{
+  flex:1;padding:7px 10px;border:1px solid var(--line);border-radius:var(--radius);font-family:'Oswald';
+  font-weight:500;font-size:14px;letter-spacing:.02em;background:#fff;
+}
+.job-group-head .job-remove{
+  background:none;border:none;color:var(--red);cursor:pointer;font-size:12px;font-family:'Oswald';
+  font-weight:600;letter-spacing:.04em;text-transform:uppercase;padding:5px 8px;white-space:nowrap;
+}
+.job-group-head .job-remove:hover{background:#FBE7E3;border-radius:3px;}
+.job-parts-foot{display:flex;justify-content:space-between;align-items:center;margin-top:4px;}
+.job-subtotal{font-family:'IBM Plex Mono';font-size:12.5px;color:var(--ink-soft);}
+.job-subtotal b{color:var(--ink);}
+.job-sub-label{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);font-weight:600;margin:10px 0 4px;}
+
+.btn{
+  font-family:'Oswald';font-weight:600;letter-spacing:.05em;text-transform:uppercase;font-size:12.5px;
+  border:none;border-radius:var(--radius);padding:9px 16px;cursor:pointer;transition:.15s;
+}
+.btn-amber{background:var(--amber);color:var(--steel);}
+.btn-amber:hover{background:var(--amber-dark);}
+.btn-ghost{background:transparent;border:1.5px solid var(--steel);color:var(--steel);}
+.btn-ghost:hover{background:var(--steel);color:#fff;}
+.btn-steel{background:var(--steel);color:#fff;}
+.btn-steel:hover{background:#101720;}
+.btn-sm{padding:6px 12px;font-size:11.5px;}
+
+.totals-panel{padding:18px 24px;display:flex;justify-content:flex-end;}
+.totals-box{width:320px;font-family:'IBM Plex Mono';font-size:13.5px;}
+.totals-box .row{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px dotted var(--line);}
+.totals-box .row.grand{border-bottom:none;border-top:2px solid var(--steel);margin-top:6px;padding-top:9px;font-size:17px;font-weight:600;}
+.totals-box .row.profit{color:var(--green);font-weight:600;}
+.ticket-actions{padding:16px 24px 24px;display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
+.saved-flash{
+  display:none;background:#E4F2E9;color:var(--green);border:1px solid #bfe4cd;padding:9px 14px;border-radius:var(--radius);
+  font-size:12.5px;font-weight:600;margin:0 24px 14px;
+}
+.empty-note{font-size:12px;color:var(--ink-soft);padding:8px 6px 12px;}
+
+::-webkit-scrollbar{width:9px;height:9px;}
+::-webkit-scrollbar-thumb{background:#c9c3b3;border-radius:5px;}
+
+@media print{
+  .topbar, .panel-head .btn, .ticket-actions, .saved-flash{display:none !important;}
+  body{background:#fff;}
+  .wrap{padding:0;max-width:none;}
+  .view:not(.active){display:none !important;}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-badge">MA</div>
+      <div class="brand-text">
+        <h1>Mike Automotive</h1>
+        <div class="sub">SHOP LEDGER &nbsp;·&nbsp; 901-219-8229 &nbsp;·&nbsp; 9060 CHIMNEYROCK BLVD, CORDOVA TN</div>
+      </div>
+    </div>
+    <nav class="tabs">
+      <button class="active" data-view="dashboard">Dashboard</button>
+      <button data-view="invoice">New Invoice</button>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- ============ DASHBOARD ============ -->
+  <div id="view-dashboard" class="view active">
+
+    <div class="kpi-row">
+      <div class="kpi gauge-kpi">
+        <svg id="marginGauge" width="76" height="76" viewBox="0 0 76 76">
+          <circle cx="38" cy="38" r="32" fill="none" stroke="#EAE7DC" stroke-width="8"/>
+          <circle id="marginArc" cx="38" cy="38" r="32" fill="none" stroke="#F2A400" stroke-width="8" stroke-linecap="round"
+            stroke-dasharray="201" stroke-dashoffset="201" transform="rotate(-90 38 38)"/>
+        </svg>
+        <div>
+          <div class="label">Avg Profit Margin</div>
+          <div class="gauge-num" id="kpiMargin">—%</div>
+          <div class="sub2">across all jobs</div>
+        </div>
+      </div>
+      <div class="kpi">
+        <div class="label">Total Revenue</div>
+        <div class="value" id="kpiRevenue">—</div>
+        <div class="sub2" id="kpiJobCount">— jobs on file</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Total Profit</div>
+        <div class="value green" id="kpiProfit">—</div>
+        <div class="sub2" id="kpiCost">— in parts cost</div>
+      </div>
+      <div class="kpi">
+        <div class="label">Avg Ticket</div>
+        <div class="value" id="kpiAvgTicket">—</div>
+        <div class="sub2" id="kpiTopCustomer">top customer —</div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="panel">
+        <div class="panel-head"><h3>Revenue &amp; Profit by Month</h3></div>
+        <div class="panel-body"><canvas id="trendChart" height="230"></canvas></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h3>Top Customers</h3></div>
+        <div class="panel-body"><canvas id="custChart" height="230"></canvas></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Multi-Location Sync</h3>
+        <span id="syncStatus" class="mono" style="color:var(--ink-soft);font-size:11.5px;">Not connected</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-grid" style="padding:0 0 12px;grid-template-columns:1fr auto;">
+          <div class="field"><label>Google Sheet Web App URL</label><input id="sheetUrlInput" placeholder="https://script.google.com/macros/s/.../exec"></div>
+          <div class="field" style="align-self:flex-end;"><button class="btn btn-amber btn-sm" id="connectSheetBtn" style="width:100%;">Save &amp; Connect</button></div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button class="btn btn-ghost btn-sm" id="pullSheetBtn">Pull Latest From Sheet</button>
+          <button class="btn btn-ghost btn-sm" id="disconnectSheetBtn">Disconnect</button>
+          <button class="btn btn-ghost btn-sm" id="pushAllBtn">Push All Local Data to Sheet</button>
+        </div>
+        <div class="empty-note" style="padding-top:10px;">Connect once per device to a shared Google Sheet — every save writes there, and "Pull Latest" grabs invoices entered elsewhere. Setup script: mike-automotive-sheet-sync.gs</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Data &amp; Backup</h3>
+        <span class="mono" style="color:var(--ink-soft);font-size:11.5px;">Local safety copies, in addition to Sheet sync.</span>
+      </div>
+      <div class="panel-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <button class="btn btn-ghost btn-sm" id="exportCsvBtn">Export CSV (Excel)</button>
+        <button class="btn btn-ghost btn-sm" id="downloadBackupBtn">Download Backup (JSON)</button>
+        <button class="btn btn-ghost btn-sm" id="restoreBackupBtn">Restore Backup</button>
+        <input type="file" id="restoreFileInput" accept="application/json" style="display:none;">
+        <span id="backupStatus" class="mono" style="font-size:11.5px;color:var(--green);"></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Job Log <span id="rowCount" class="mono" style="color:var(--ink-soft);font-size:12px;"></span></h3>
+        <input class="search-input" id="jobSearch" placeholder="Search customer, vehicle, job...">
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th data-key="job">Job</th>
+              <th data-key="c">Customer</th>
+              <th data-key="v">Vehicle</th>
+              <th data-key="d">Date</th>
+              <th data-key="t" style="text-align:right">Total</th>
+              <th data-key="pr" style="text-align:right">Profit</th>
+              <th data-key="margin" style="text-align:right">Margin</th>
+            </tr>
+          </thead>
+          <tbody id="jobTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Parts Purchases <span id="purchaseCount" class="mono" style="color:var(--ink-soft);font-size:12px;"></span></h3>
+        <span class="mono" id="purchaseTotal" style="color:var(--ink-soft);font-size:12px;"></span>
+      </div>
+      <div class="panel-body" style="padding-bottom:6px;">
+        <button type="button" class="pricelist-toggle" id="purchaseFormToggle">+ Log a Parts Purchase</button>
+        <button type="button" class="pricelist-toggle" id="importPurchasesToggle" style="margin-left:16px;">Import from CSV</button>
+        <input type="file" id="purchaseCsvInput" accept=".csv" style="display:none;">
+        <span id="purchaseImportStatus" class="mono" style="font-size:11.5px;margin-left:10px;"></span>
+        <div id="purchaseForm" style="display:none;margin-top:10px;">
+          <div class="form-grid" style="padding:0 0 10px;grid-template-columns:repeat(3,1fr);">
+            <div class="field"><label>Date</label><input id="pDate" type="date"></div>
+            <div class="field"><label>Invoice # / Vendor</label><input id="pSource" placeholder="e.g. WORLD PARTS or 464013"></div>
+            <div class="field"><label>Part / Supplies</label><input id="pPart" placeholder="e.g. Brake pad and rotors"></div>
+          </div>
+          <div class="form-grid" style="padding:0 0 10px;grid-template-columns:repeat(3,1fr);">
+            <div class="field"><label>Amount ($)</label><input id="pAmount" type="number" step="0.01" placeholder="140.55"></div>
+            <div class="field"><label>Customer</label><input id="pCustomer" placeholder="Which job was this for?"></div>
+            <div class="field"><label>Vehicle</label><input id="pVehicle" placeholder="e.g. 2014 Mercedes ML350"></div>
+          </div>
+          <div class="field" style="padding-bottom:10px;"><label>Notes</label><input id="pNotes" placeholder="Optional"></div>
+          <button type="button" class="btn btn-amber btn-sm" id="savePurchaseBtn">Log Purchase</button>
+          <span id="purchaseStatus" class="mono" style="font-size:11.5px;margin-left:10px;"></span>
+        </div>
+      </div>
+      <div class="table-scroll" style="max-height:360px;">
+        <table>
+          <thead>
+            <tr>
+              <th data-pkey="date">Date</th>
+              <th data-pkey="source">Invoice # / Vendor</th>
+              <th data-pkey="part">Part / Supplies</th>
+              <th data-pkey="customer">Customer</th>
+              <th data-pkey="vehicle">Vehicle</th>
+              <th data-pkey="amount" style="text-align:right">Amount</th>
+            </tr>
+          </thead>
+          <tbody id="purchaseTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ NEW INVOICE ============ -->
+  <div id="view-invoice" class="view">
+    <div class="ticket">
+      <div class="ticket-head">
+        <div>
+          <h2>Work Order / Invoice</h2>
+          <div class="addr">Mike Automotive Repair &nbsp;·&nbsp; 901-219-8229</div>
+        </div>
+        <div class="wo-stamp">NEW TICKET</div>
+      </div>
+
+      <div class="form-grid">
+        <div class="field"><label>Customer Name</label><input id="fCustomer" placeholder="Jane Smith"></div>
+        <div class="field"><label>Cell Phone</label><input id="fPhone" type="tel" placeholder="901-555-0110"></div>
+        <div class="field"><label>Email</label><input id="fEmail" type="email" placeholder="jane@email.com"></div>
+
+        <div class="field-group-label">Vehicle</div>
+        <div class="field"><label>Year</label><input id="fYear" placeholder="2016"></div>
+        <div class="field"><label>Make</label><input id="fMake" placeholder="Honda"></div>
+        <div class="field"><label>Model</label><input id="fModel" placeholder="Accord"></div>
+        <div class="field"><label>Engine</label><input id="fEngine" placeholder="2.4L 4-cyl"></div>
+        <div class="field"><label>Color</label><input id="fColor" placeholder="Silver"></div>
+        <div class="field"><label>VIN</label><input id="fVin" class="mono" placeholder="1HGCM82633A004352"></div>
+        <div class="field"><label>Miles In</label><input id="fMilesIn" type="number" placeholder="98450"></div>
+        <div class="field"><label>Miles Out</label><input id="fMilesOut" type="number" placeholder="98450"></div>
+        <div class="field"><label>License Plate</label><input id="fPlate" placeholder="ABC1234"></div>
+        <div class="field"><label>Date</label><input id="fDate" type="date"></div>
+      </div>
+
+      <div class="lines-section">
+        <h4>Customer Issues &amp; Advisories</h4>
+        <div class="issue-grid">
+          <div class="field"><label>Symptoms and Diagnostic Trouble Codes</label><textarea id="fSymptoms" rows="2" placeholder="Customer wants steering gear replaced"></textarea></div>
+          <div class="field">
+            <label>DTC Codes</label>
+            <div class="dtc-input-row">
+              <input id="fDtcInput" placeholder="P0016">
+              <button type="button" class="btn btn-ghost btn-sm" id="addDtcBtn">+ Add</button>
+            </div>
+            <div class="dtc-chips" id="dtcChips"></div>
+          </div>
+        </div>
+        <div class="field" style="margin-top:12px;"><label>Work to be Performed</label><textarea id="fWork" rows="2" placeholder="Replaced steering gear"></textarea></div>
+        <div class="field" style="margin-top:12px;"><label>Advisory Note</label><textarea id="fAdvisory" rows="2" placeholder="Optional: additional recommendations for the customer"></textarea></div>
+      </div>
+
+      <div class="lines-section">
+        <h4>Jobs on this Vehicle <button class="btn btn-ghost btn-sm" id="addJobGroup">+ Add Job</button></h4>
+        <div id="jobGroupsContainer"></div>
+        <datalist id="laborCodesOptions"></datalist>
+        <div class="empty-note" id="jobsEmpty">No jobs yet — add one above (e.g. "Front Brakes", "Rear Brakes").</div>
+        <div class="empty-note" style="padding-top:0;">Each job gets its own labor line and parts — they'll print grouped together, like separate repair jobs on the same vehicle.</div>
+        <div class="pricelist-box">
+          <button type="button" class="pricelist-toggle" id="pricelistToggle">+ New job not on your price list? Add it here</button>
+          <div class="pricelist-form" id="pricelistForm" style="display:none;">
+            <div class="form-grid" style="padding:10px 0 0;grid-template-columns:2fr 1fr auto;">
+              <div class="field"><label>Job Description</label><input id="newLaborDesc" placeholder="e.g. TIMING BELT REPLACEMENT"></div>
+              <div class="field"><label>Rate</label><input id="newLaborRate" type="number" step="0.01" placeholder="150"></div>
+              <div class="field" style="align-self:flex-end;"><button type="button" class="btn btn-amber btn-sm" id="saveLaborCodeBtn" style="width:100%;">Add to List</button></div>
+            </div>
+            <div class="empty-note" id="pricelistStatus" style="padding-top:6px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lines-section" style="border-bottom:1px solid var(--line);">
+        <div class="form-grid" style="padding:0;grid-template-columns:repeat(3,1fr);">
+          <div class="field"><label>Shop Supplies Fee (auto: 5.2% of parts, capped $22.50)</label><input id="fSupplies" type="number" step="0.01" value="0" readonly style="background:#F1EFE8;color:var(--ink-soft);"></div>
+          <div class="field"><label>Tax Rate — Labor, Parts &amp; Supplies (%)</label><input id="fTaxRate" type="number" step="0.01" value="9.75"></div>
+        </div>
+      </div>
+
+      <div class="totals-panel">
+        <div class="totals-box">
+          <div class="row"><span>Labor</span><span id="tLabor">$0.00</span></div>
+          <div class="row"><span>Parts</span><span id="tParts">$0.00</span></div>
+          <div class="row"><span>Shop Supplies</span><span id="tSupplies">$0.00</span></div>
+          <div class="row"><span>Tax</span><span id="tTax">$0.00</span></div>
+          <div class="row grand"><span>Invoice Total</span><span id="tGrand">$0.00</span></div>
+          <div class="row profit"><span>Estimated Profit</span><span id="tProfit">$0.00</span></div>
+        </div>
+      </div>
+
+      <div class="saved-flash" id="savedFlash">✓ Invoice saved to the shop ledger.</div>
+      <div class="ticket-actions">
+        <button class="btn btn-ghost" id="printBtn">Print Customer Invoice</button>
+        <button class="btn btn-steel" id="clearBtn">Clear Form</button>
+        <button class="btn btn-amber" id="saveBtn">Save Invoice</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const SEED_JOBS = [{"c":"Dexter Allen","v":"2008 BMW 750LI","d":"2025-08-01","l":220,"p":216.64,"pc":151.44,"tx":22.22,"pr":296.47,"t":470.13,"job":"Allen Dex Bmw 750Li Wind Re (2)"},{"c":"Dexter Allen","v":"2008 BMW 750LI","d":"2025-08-01","l":187,"p":216.64,"pc":151.44,"tx":22.22,"pr":263.47,"t":437.13,"job":"Allen Dex Bmw 750Li Wind Reg"},{"c":"Dexter Allen","v":"2008 Toyota Corolla","d":"2024-08-17","l":415,"p":457.67,"pc":335.28,"tx":87.28,"pr":559.9,"t":982.45,"job":"Allen Dex Corolla"},{"c":"Dexter Allen","v":"2017 Chevy Equinox","d":"2024-07-18","l":55,"p":117.95,"pc":80.91,"tx":17.46,"pr":98.18,"t":196.55,"job":"Allen Dex Equinox Blower Motor"},{"c":"Dexter Allen","v":"2017 Chevy Equinox","d":"2024-07-18","l":55,"p":81.74,"pc":56.07,"tx":13.75,"pr":84.92,"t":154.74,"job":"Allen Dex Equinox Blr Mtr"},{"c":"Dexter Allen","v":"2017 Chevy Equinox","d":"2025-03-17","l":220,"p":357.76,"pc":245.4,"tx":58.15,"pr":350.96,"t":654.51,"job":"Allen Dex Equinox Hub"},{"c":"Dexter Allen","v":"2017 Chevy Equinox","d":"2025-10-18","l":110,"p":285.69,"pc":208.05,"tx":29.3,"pr":202.5,"t":439.85,"job":"Allen Dex Equinox Hub Rear"},{"c":"Dexter Allen JR","v":"2015 Chevy Malibu","d":"2024-10-21","l":150,"p":204.98,"pc":142.66,"tx":35.65,"pr":222.98,"t":401.29,"job":"Allen Dex Lil Malibu Brakes"},{"c":"Dexter Allen","v":"2018 Toyota RAV4","d":"2024-07-26","l":55,"p":212.7,"pc":148.35,"tx":27.18,"pr":130.41,"t":305.94,"job":"Allen Dex Rav 4 Blower Motor"},{"c":"Dexter Allen","v":"2008 Chevy Suburan","d":"2025-05-05","l":150,"p":279.98,"pc":192.05,"tx":43.34,"pr":252.49,"t":487.89,"job":"Allen Dex Suburan Brakes Ft"},{"c":"Steve Armstrong","v":"2015 MERCEDES-BENZ E350","d":"2023-07-02","l":148.75,"p":191.4,"pc":148.83,"tx":33.16,"pr":236.48,"t":385.31,"job":"Armstrong Steve"},{"c":"Steve Armstrong","v":"2019 GMC Sierra Denali","d":"2023-06-15","l":297.5,"p":610.8,"pc":237.07,"tx":88.56,"pr":771.78,"t":1008.85,"job":"Armstrong Steve 1"},{"c":"Steve Armstrong","v":"2015 MERCEDES-BENZ E350","d":"2024-02-08","l":148.75,"p":239.98,"pc":164.61,"tx":39.07,"pr":236.12,"t":439.81,"job":"Armstrong Steve E350 Brakes"},{"c":"Steve Armstrong","v":"2013 MERCEDES-BENZ E350","d":"2024-04-25","l":398,"p":659.25,"pc":466.79,"tx":104.25,"pr":602.46,"t":1173.5,"job":"Armstrong Steve E350 Struts"},{"c":"James Stockman JR","v":"2024 Volkswagen Taos","d":"2026-06-15","l":110,"p":0,"pc":0,"tx":0,"pr":110,"t":110,"job":"Stock James Jr Vw Brakes"},{"c":"Ashley","v":"2020 Toyota Corolla","d":"2026-06-09","l":0,"p":44.34,"pc":48.66,"tx":4.32,"pr":-2.02,"t":48.66,"job":"Ashely Corola Oil Change"},{"c":"Ashley","v":"2020 Toyota Corolla","d":"2024-07-02","l":110,"p":81,"pc":88.9,"tx":19.03,"pr":106.31,"t":214.25,"job":"Ashley Corolla Heater Valve"},{"c":"Eugene Echols","v":"2012 Mercedes ML350","d":"2024-09-06","l":150,"p":351.56,"pc":243.63,"tx":50.68,"pr":276.21,"t":570.53,"job":"Bell Gene Brake Caliper"},{"c":"Bell Stacey","v":"2015 INFINITY Q50","d":"2023-06-29","l":443.7,"p":1683.5,"pc":1532.03,"tx":215.97,"pr":823.14,"t":2355.18,"job":"Bell Stacey"},{"c":"Bell Stacey","v":"2015 INFINITY Q50","d":"2024-12-07","l":300,"p":0,"pc":0,"tx":29.25,"pr":300,"t":329.25,"job":"Bell Stacey Q50 Brakes"},{"c":"Laderral","v":"2008 Chevrolet HHR la","d":"2023-06-03","l":297.5,"p":321.67,"pc":166.39,"tx":60.37,"pr":528.14,"t":694.54,"job":"Blair Hhr"},{"c":"Ricky Brandon","v":"2006 BMW 750LI","d":"2025-07-21","l":440,"p":418.76,"pc":292.08,"tx":85.85,"pr":588.46,"t":966.39,"job":"Brandon Ricky Bmw 750 Ac Compre"},{"c":"Ricky Brandon","v":"2006 BMW 750LI","d":"2024-11-06","l":110,"p":207.88,"pc":145.32,"tx":32.05,"pr":183.37,"t":360.74,"job":"Brandon Ricky Bmw 750 O2 Sensor"},{"c":"Ricky Brandon","v":"2006 BMW 750LI","d":"2025-07-27","l":173,"p":446.02,"pc":357.15,"tx":62.55,"pr":284.38,"t":704.07,"job":"Brandon Ricky Bmw 750 Oil Servi"},{"c":"Ricky Brandon","v":"2006 BMW 750LI","d":"2024-12-24","l":473,"p":904.26,"pc":627.23,"tx":136.48,"pr":772.53,"t":1536.24,"job":"Brandon Ricky Bmw 750 Struts"},{"c":"Ricky Brandon","v":"2006 BMW 750LI","d":"2025-07-27","l":737,"p":600.94,"pc":431.94,"tx":132.64,"pr":928.49,"t":1493.08,"job":"Brandon Ricky Bmw 750 Valv Cov"},{"c":"Ricky Brandon","v":"2013 BMW X5","d":"2024-08-29","l":440,"p":487.64,"pc":340.88,"tx":92.64,"pr":609.26,"t":1042.78,"job":"Brandon Ricky Bmw Struts"},{"c":"Ricky Brandon","v":"2013 BMW X5","d":"2024-08-29","l":150,"p":487.64,"pc":340.88,"tx":64.36,"pr":319.26,"t":724.51,"job":"Brandon Ricky Bmw X5 Struts"},{"c":"Ricky Brandon","v":"2013 BMW X5","d":"2024-11-05","l":550,"p":1527.52,"pc":1118.1,"tx":204.75,"pr":981.92,"t":2304.77,"job":"Brandon Ricky Bmw X5 Water Pump"},{"c":"Jamaal Brown","v":"2014 HONDA ODYSSEY","d":"2023-08-02","l":163.25,"p":239.98,"pc":164.61,"tx":37.9,"pr":250.62,"t":415.24,"job":"Brown Jamaal Odyssey Brakes"},{"c":"Jamaal Brown","v":"2014 HONDA ODYSSEY","d":"2023-10-12","l":163.25,"p":239.98,"pc":164.61,"tx":39.07,"pr":251.79,"t":416.41,"job":"Brown Jamaal Odyssey Rear Brake"},{"c":"Jamaal Brown","v":"2010 Hyundai Santa Fe","d":"2025-03-24","l":180,"p":335.38,"pc":230.05,"tx":51.95,"pr":302.77,"t":584.77,"job":"Brown Jamaal Santa Fe Brake"},{"c":"Jamaal Brown","v":"2010 Hyundai Santa Fe","d":"2023-11-02","l":124.38,"p":362.8,"pc":252.98,"tx":48.67,"pr":247.36,"t":549.02,"job":"Brown Jamaal Santa Fe Starter"},{"c":"Jamaal Brown","v":"2010 Hyundai Santa Fe","d":"2024-03-13","l":258.7,"p":801.0,"pc":555.82,"tx":104.49,"pr":515.88,"t":1176.19,"job":"Brown Jamaal Santa Fe Strut"},{"c":"Kenny Brown","v":"2011 Toyota Avalon","d":"2025-11-08","l":55,"p":125,"pc":137.19,"tx":0,"pr":49.31,"t":186.5,"job":"Brown Kenny Availon Mirror"},{"c":"Kenny Brown","v":"2011 Toyota Avalon","d":"2025-12-29","l":143,"p":310.28,"pc":217.32,"tx":30.25,"pr":252.1,"t":499.67,"job":"Brown Kenny Availon Pw Str"},{"c":"Kenny Brown","v":"2011 Toyota Avaion","d":"2024-07-31","l":140,"p":366.9,"pc":93.13,"tx":51.28,"pr":432.84,"t":577.26,"job":"Brown Kenny Availon Sensor"},{"c":"Kenny Brown","v":"2011 Toyota Avalon","d":"2025-10-13","l":354.88,"p":446.13,"pc":306.17,"tx":48.12,"pr":517.34,"t":871.62,"job":"Brown Kenny Availon Struts"},{"c":"Kenny Brown","v":"2004 Dodge Dakota","d":"2025-12-05","l":165,"p":264.78,"pc":206.96,"tx":20.94,"pr":236.6,"t":464.49,"job":"Brown Kenny Dakota Door Latch"},{"c":"Kenny Brown","v":"2004 Dodge Dakota","d":"2026-01-04","l":535,"p":693.74,"pc":263.64,"tx":67.64,"pr":987.59,"t":1318.88,"job":"Brown Kenny Dakota Radiator-Brk"},{"c":"Steve Burford","v":"2008 GMC Sierra 1500","d":"2023-10-23","l":181.25,"p":314.18,"pc":256.92,"tx":48.3,"pr":292.81,"t":549.74,"job":"Burford Steve"},{"c":"Steve Burford","v":"2008 GMC Sierra 1500","d":"2023-10-24","l":148.75,"p":207.98,"pc":93.28,"tx":35.84,"pr":275.32,"t":404.43,"job":"Burford Steve Sierra 1500 Brake"},{"c":"Carlos Jones","v":"2014 Merdedes Benz ML 350","d":"2023-01-02","l":163.25,"p":384.73,"pc":127.52,"tx":0,"pr":432.47,"t":559.99,"job":"Carlos Jones Ml350"},{"c":"Carlos Jones","v":"2010 Merdedes Benz S550","d":"2023-01-02","l":249.08,"p":308.48,"pc":200.68,"tx":0,"pr":371.88,"t":572.56,"job":"Carlos Jones S550"},{"c":"William Cassan","v":"2011 BMW X5","d":"2023-12-20","l":129.35,"p":104.22,"pc":71.49,"tx":23.3,"pr":167.5,"t":262.3,"job":"Cassan William Bmw Coils"},{"c":"William Cassan","v":"2011 BMW X5","d":"2023-12-20","l":27.95,"p":0,"pc":0,"tx":2.73,"pr":27.95,"t":30.68,"job":"Cassan William Bmw Oil Service"},{"c":"Darrell Champion","v":"2002 FORD THUNDER BIRD","d":"2023-08-03","l":1055.45,"p":413.76,"pc":323.13,"tx":143.25,"pr":1301.33,"t":1624.46,"job":"Champion Darrel"},{"c":"Charles Nichols","v":"2018 Buick Encoure","d":"2023-09-13","l":49.75,"p":28.83,"pc":19.78,"tx":7.66,"pr":60.3,"t":80.08,"job":"Charles Nichols"},{"c":"Corey Clay","v":"2021 GMC Terran","d":"2025-11-24","l":99.5,"p":71.36,"pc":48.95,"tx":7.32,"pr":125.62,"t":181.89,"job":"Clay Corey Gmc Terrain Fr Brake"},{"c":"Pee Wee Ward","v":"19792FORD RANCHERO","d":"2024-06-11","l":160,"p":329.66,"pc":226.13,"tx":49.41,"pr":280.68,"t":556.22,"job":"Cortez Cuz Pewe Brakes"},{"c":"Cortez Ward","v":"2003 Cadalic Deville","d":null,"l":272.45,"p":363.44,"pc":227.15,"tx":0,"pr":423.74,"t":650.89,"job":"Cub Ward Caddy"},{"c":"Del Grey","v":"2015 Kia Soul","d":"2025-06-18","l":140,"p":498.63,"pc":361.56,"tx":64.46,"pr":299.57,"t":725.59,"job":"Dale Grey 2015 Kia Soul"},{"c":"Del Grey","v":"2018 Kia Soul","d":"2025-06-19","l":140,"p":444.06,"pc":324.12,"tx":59.14,"pr":282.43,"t":665.7,"job":"Dale Grey 2018 Kia Soul"},{"c":"Del Grey","v":"2021 Chevy Silverado 1500","d":"2025-01-11","l":60,"p":273.5,"pc":273.11,"tx":33.69,"pr":72.39,"t":379.19,"job":"Dale Grey Chevy 1500 Oil Se (2)"},{"c":"Del Grey","v":"2021 Chevy Silverado 1500","d":"2025-08-08","l":60,"p":196.21,"pc":134.59,"tx":25.98,"pr":131.82,"t":292.39,"job":"Dale Grey Chevy 1500 Oil Se (3)"},{"c":"Del Grey","v":"2021 Chevy Silverado 1500","d":"2024-07-08","l":55.9,"p":145.04,"pc":148.74,"tx":20.33,"pr":59.74,"t":228.81,"job":"Dale Grey Chevy 1500 Oil Serv"},{"c":"Del Grey","v":"2021 Chevy Silverado 1500","d":"2024-02-20","l":27.95,"p":79.17,"pc":81.17,"tx":10.85,"pr":30.06,"t":122.08,"job":"Dale Grey Chevy 1500 Oil Servic"},{"c":"Dale Grey","v":"2008 Honda Civic","d":"2023-07-27","l":0,"p":275.81,"pc":189.19,"tx":26.89,"pr":98.62,"t":287.81,"job":"Dale Grey Civic Alternator"},{"c":"Delvron Grey","v":"2008 Ford Expedition","d":"2023-11-10","l":598.75,"p":558.9,"pc":383.84,"tx":114.04,"pr":786.98,"t":1284.86,"job":"Dale Grey Expedition Rad Hose"},{"c":"Del Grey","v":"2018 Ford F150 XLT","d":"2026-04-27","l":150,"p":506.48,"pc":347.41,"tx":51.58,"pr":331.57,"t":730.56,"job":"Dale Grey Ford F150 Frt Brakes"},{"c":"Del Grey","v":"2008 Toyota Tundra","d":"2024-02-19","l":584,"p":1622.78,"pc":1152.52,"tx":216.33,"pr":1066.26,"t":2435.11,"job":"Dale Grey Tundra Struts"},{"c":"Del Grey","v":"2008 Toyota Tundra","d":"2024-02-18","l":298,"p":1286.56,"pc":882.5,"tx":155.66,"pr":731.12,"t":1752.22,"job":"Dale Grey Tundra Tune Up"},{"c":"Dale Grey","v":"2008 Toyota  Tundra","d":"2023-07-31","l":0,"p":81.04,"pc":73.29,"tx":7.9,"pr":12.61,"t":85.9,"job":"Dale Grey Turndra Oil Ch"},{"c":"Dale Worker","v":"2011 Chevy Cruze","d":"2023-12-21","l":27.95,"p":48.92,"pc":46.68,"tx":7.74,"pr":32.74,"t":87.16,"job":"Dale Worker Oil Service Cruze"},{"c":"Dale Worker","v":"2004 KIA Sedona","d":"2025-04-21","l":275,"p":294.63,"pc":212.39,"tx":57.03,"pr":372.56,"t":641.99,"job":"Dale Worker Radiator Sedona"},{"c":"Quincy Ware","v":"2010 Toyota Corolla","d":"2026-06-17","l":767.5,"p":1327.34,"pc":932.92,"tx":131.61,"pr":1184.42,"t":2248.95,"job":"Ware Quincy Corolla Struts"},{"c":"Cortez Ward","v":"1965 Chevy PickUp","d":"2026-06-17","l":0,"p":526.28,"pc":469.29,"tx":53.51,"pr":79.49,"t":602.29,"job":"Ward Cortez 65 Chevy "},{"c":"Sophfia Jones","v":"2022 Buick Encore GX","d":"2022-10-18","l":275,"p":419.05,"pc":288.16,"tx":42.98,"pr":427.68,"t":758.82,"job":"Estimate Sheet"},{"c":"Sophfia Jones","v":"2013 Ford F150 XL","d":"2026-04-28","l":275,"p":471.63,"pc":323.51,"tx":48.18,"pr":445.62,"t":817.31,"job":"F150 Water Pump"},{"c":"Gregor Ferguson","v":"2008 CHEVY AVALANCHE","d":"2024-05-06","l":298.5,"p":424.66,"pc":353.44,"tx":72.66,"pr":391.81,"t":817.91,"job":"Fergurson Gregor Ac Service"},{"c":"Kacee Franklin","v":"2019 BMW X3","d":"2025-07-22","l":275,"p":133.31,"pc":91.44,"tx":40.49,"pr":323.8,"t":455.73,"job":"Franklin Kacee Bmw X3 Rad Hose"},{"c":"Kacee Franklin","v":"2013 VW Beetle","d":"2023-10-29","l":0,"p":784.67,"pc":594.68,"tx":77.68,"pr":203.16,"t":875.51,"job":"Franklin Kacee Steering Pump"},{"c":"Marketh Gaines","v":"2015 GMC Sierra 1500","d":"2023-12-02","l":99.5,"p":416.61,"pc":302.8,"tx":51.49,"pr":225.31,"t":579.6,"job":"Gaines Marketh Alternator"},{"c":"Arlene Hackett","v":"2015 Nissan Armada","d":"2024-08-03","l":260,"p":407.66,"pc":186.56,"tx":67.16,"pr":502.3,"t":756.03,"job":"Hackett Arlene Armada Tailgate"},{"c":"Arlene Hackett","v":"2015 Nissan Armada","d":"2024-07-20","l":165,"p":135.68,"pc":93.07,"tx":30.0,"pr":214.67,"t":337.74,"job":"Hackett Arlene Liftgate"},{"c":"Arlene Hackett","v":"2015 Nissan Armada","d":"2024-07-20","l":36,"p":76.16,"pc":91.45,"tx":12.44,"pr":24.67,"t":128.56,"job":"Hackett Arlene Oil Service"},{"c":"Mykila Hackett","v":"2017 Infiniti QX80","d":"2023-12-22","l":199,"p":466.38,"pc":345.49,"tx":64.87,"pr":390.76,"t":736.25,"job":"Hackett Mikala Qx80 Alternator"},{"c":"Tim Hackett","v":"2017 BMW X4","d":"2025-06-12","l":247.5,"p":309.79,"pc":237.52,"tx":55.91,"pr":335.88,"t":629.31,"job":"Hackett Tim Bmw X4 Front Br"},{"c":"Timothy Hackett","v":"2014 FORD F150","d":"2025-03-26","l":110,"p":47.78,"pc":32.77,"tx":15.63,"pr":127.49,"t":175.89,"job":"Hackett Tim F150 Blend Door Act"},{"c":"Timothy Hackett","v":"2014 FORD F150","d":"2025-04-15","l":0,"p":162.99,"pc":164.61,"tx":16.72,"pr":6.85,"t":188.18,"job":"Hackett Tim F150 Front Brakes ("},{"c":"Timothy Hackett","v":"2014 FORD F150 Platinum","d":"2025-04-15","l":275,"p":446.76,"pc":320.47,"tx":72.57,"pr":423.79,"t":816.83,"job":"Hackett Tim F150 Front Struts"},{"c":"Timothy Hackett","v":"2014 FORD F150","d":"2024-06-13","l":624.45,"p":1223.03,"pc":887.0,"tx":182.32,"pr":982.98,"t":2052.3,"job":"Hackett Tim F150 Tune Up"},{"c":"Tim Hackett","v":"2017 Ford Fusion","d":"2024-11-09","l":353.23,"p":823.5,"pc":357.66,"tx":116.93,"pr":841.57,"t":1316.16,"job":"Hackett Tim Fusion Coils"},{"c":"Tim Hackett","v":"2017 Ford Fusion","d":"2023-07-02","l":148.75,"p":207.99,"pc":161.54,"tx":35.83,"pr":241.83,"t":403.37,"job":"Hackett Tim Fusion Front Brakes"},{"c":"Tim Hackett","v":"2017 Ford Fusion","d":"2025-03-15","l":150,"p":239.98,"pc":164.61,"tx":39.24,"pr":237.85,"t":441.7,"job":"Hackett Tim Fusion Rear Brakes"},{"c":"Mike Harris","v":"2016 Merdedes Benz S550","d":"2024-01-08","l":0,"p":725.12,"pc":787.24,"tx":71.87,"pr":-50.12,"t":808.99,"job":"Harris Mike S550 Tune Up"},{"c":"Shirelle Humpreys","v":"2015 MERCEDES-BENZ CLA250","d":"2025-07-16","l":150,"p":14,"pc":9.6,"tx":1.44,"pr":155.12,"t":166.16,"job":"Humprey Shirel Cla250 Brakes"},{"c":"Shirelle Humpreys","v":"2015 MERCEDES-BENZ CLA250","d":"2025-06-24","l":330,"p":278.91,"pc":208.88,"tx":60.54,"pr":412.03,"t":681.45,"job":"Humprey Shirel Cla250 Strut"},{"c":"Mykila Johnson","v":"2009 Pontiac G6","d":"2024-04-09","l":99.5,"p":192.74,"pc":92.63,"tx":29.47,"pr":209.63,"t":331.73,"job":"Johnson Mikila Camshaft Sens"},{"c":"Mykila Johnson","v":"2009 Pontiac G6","d":"2023-07-18","l":74.62,"p":70.25,"pc":17.55,"tx":14.13,"pr":132.01,"t":149.56,"job":"Johnson Mikila G6 Headlight"},{"c":"Mykila Johnson","v":"2009 Pontiac G6","d":"2023-07-26","l":99.5,"p":125,"pc":137.19,"tx":21.89,"pr":93.81,"t":231,"job":"Johnson Mikila G6 Seat"},{"c":"Mykila Johnson","v":"2009 Pontiac G6","d":"2024-03-21","l":177.2,"p":203.83,"pc":157.51,"tx":38.18,"pr":234.11,"t":429.81,"job":"Johnson Mikila G6 Valve Cov"},{"c":"Mykila Johnson","v":"2009 Pontiac G6","d":"2023-12-22","l":99.5,"p":62.42,"pc":42.81,"tx":16.1,"pr":122.35,"t":181.26,"job":"Johnson Mykalia G6 Thermostat"},{"c":"Mykila Johnson","v":"2009 Pontiac G6","d":"2023-11-01","l":248.75,"p":591.39,"pc":296.74,"tx":83.08,"pr":556.57,"t":936.39,"job":"Johnson Mykla G6 Alternator"},{"c":"Carlos Jones","v":"2014 Merdedes Benz ML 350","d":"2025-06-23","l":30,"p":99.37,"pc":102.73,"tx":13.12,"pr":31.81,"t":147.66,"job":"Jones Carlos Ml 350 Service A"},{"c":"Carlos Jones","v":"2014 Merdedes Benz ML 350","d":"2023-11-15","l":36,"p":299.88,"pc":295.5,"tx":33.92,"pr":52.37,"t":381.79,"job":"Jones Carlos Ml 350 Service B"},{"c":"Carlos Jones","v":"2014 Merdedes Benz ML 350","d":"2024-11-18","l":165,"p":432.8,"pc":312.5,"tx":60.48,"pr":307.8,"t":680.78,"job":"Jones Carlos Ml350 Alternator"},{"c":"Carlos Jones","v":"2014 Merdedes Benz ML 350","d":"2023-05-13","l":31.5,"p":125.83,"pc":120.21,"tx":15.34,"pr":58.46,"t":178.67,"job":"Jones Carlos Ml350 Oil"},{"c":"Carlos Jones","v":"2014 Merdedes Benz ML 350","d":"2024-12-15","l":165,"p":379.89,"pc":272.64,"tx":55.05,"pr":292.0,"t":619.69,"job":"Jones Carlos Ml350 Service B"},{"c":"Carlos Jones","v":"2014 Merdedes Benz ML 350","d":"2025-12-19","l":42,"p":238.66,"pc":163.7,"tx":28.57,"pr":129.36,"t":321.64,"job":"Jones Carlos Ml350 Srv B  (2)"},{"c":"Carlos Jones","v":"2010 Merdedes Benz S550","d":"2023-12-24","l":27.95,"p":251.28,"pc":225.51,"tx":28.39,"pr":65.71,"t":319.62,"job":"Jones Carlos S550 Service B"},{"c":"Carlos Jones","v":"2010 Merdedes Benz S550","d":"2024-07-29","l":440,"p":1185.3,"pc":1300.87,"tx":160.66,"pr":346.93,"t":1808.46,"job":"Jones Carlos S550 Strut"},{"c":"Tolbert Jordan","v":"2019 Ford F150 Platinum","d":"2026-01-06","l":180,"p":388.0,"pc":302.61,"tx":39.8,"pr":285.57,"t":627.98,"job":"Jordan Tolbert F150 Brake"},{"c":"Tolbert Jordan","v":"2019 Ford F150 Platinum","d":"2026-04-04","l":220,"p":332.44,"pc":238.46,"tx":34.1,"pr":331.26,"t":603.82,"job":"Jordan Tolbert F150 Oil Service"},{"c":"Grace Karanja","v":"2010 Hyundai Elantra","d":"2024-04-09","l":300.25,"p":481.08,"pc":338.29,"tx":77.35,"pr":455.04,"t":870.68,"job":"Karanja Grace Ac Service"},{"c":"Laderral","v":"2008 CHEVY EQUINX0","d":"2023-04-24","l":273.0,"p":187.77,"pc":115.47,"tx":0,"pr":360.3,"t":475.77,"job":"Laderral"},{"c":"Laderral","v":"2008 CHEVY EQUINX0","d":"2023-04-30","l":218.4,"p":461.99,"pc":251.82,"tx":45.04,"pr":443.58,"t":740.44,"job":"Laderral (2)"},{"c":"Laderral","v":"2008 CHEVY EQUINX0","d":"2023-04-15","l":99.5,"p":242.59,"pc":166.4,"tx":33.35,"pr":215.04,"t":381.45,"job":"Laderral (3)"},{"c":"Tony Lamaar","v":"2018 BMW 530E","d":"2023-05-09","l":31.5,"p":109.66,"pc":99.78,"tx":13.76,"pr":61.14,"t":160.93,"job":"Lamaar Tony Bmw 530"},{"c":"Larry Rpgers","v":"2015 CHEVY MALIBU","d":"2023-08-17","l":163.25,"p":198.68,"pc":142.66,"tx":33.87,"pr":226.82,"t":369.49,"job":"Larry Rogers Malibu Brakes"},{"c":"Lasondra Tremble","v":"2012 Scion XB","d":"2024-05-25","l":376.2,"p":486.33,"pc":351.27,"tx":86.29,"pr":533.76,"t":971.32,"job":"Lasondra Tremble Scion Whel Hub"},{"c":"LOU","v":"2022 BMW X6","d":"2022-10-18","l":199,"p":295.3,"pc":202.55,"tx":30.29,"pr":307.1,"t":539.94,"job":"Lou Bmw X6 Brakes"},{"c":"Kenisha Lovell","v":"2020 Dodge Journey","d":"2025-03-19","l":110,"p":212.44,"pc":148.5,"tx":32.51,"pr":184.98,"t":366.0,"job":"Lovell Kenisha Dodge  Journey"},{"c":"Maryln","v":"2012 Nissan Murano","d":"2023-08-01","l":27.95,"p":60.22,"pc":57.4,"tx":8.6,"pr":34.08,"t":91.48,"job":"Marilyn"},{"c":"Maryln","v":"2012 Nissan Murano","d":"2025-04-15","l":27.95,"p":60.22,"pc":57.4,"tx":8.6,"pr":34.08,"t":91.48,"job":"Marilyn Oil Change"},{"c":"Mike AC","v":"2001 TOYOTA CAMRY","d":"2023-08-05","l":163.8,"p":524.81,"pc":363.82,"tx":66.89,"pr":336.79,"t":700.61,"job":"Mike Ac Camry Starter"},{"c":"Mike Harris","v":"2016 MERCEDES S550","d":"2024-09-01","l":30,"p":118.05,"pc":98.24,"tx":15.03,"pr":55.95,"t":169.22,"job":"Mike Harris S550 Oil Service"},{"c":"Charles Smith","v":"2014 Nissan Altma","d":"2023-11-19","l":99.5,"p":504.28,"pc":78.58,"tx":90.4,"pr":537.2,"t":706.18,"job":"Nichols Charles Plenum Gasket"},{"c":"Quey","v":"2014 Toyota Corolla LE","d":"2023-06-15","l":308.45,"p":0,"pc":0,"tx":30.07,"pr":350.52,"t":350.52,"job":"Quey Corolla Spark Plug"},{"c":"Tiffinie Robertson","v":"2017 BMW 540I","d":"2025-03-18","l":180,"p":353.36,"pc":253.9,"tx":53.79,"pr":297.84,"t":605.53,"job":"Robertson Tiffie Bmw Front Brak"},{"c":"Larry Rpgers","v":"2015 CHEVY MALIBU","d":"2023-08-17","l":218.4,"p":199.48,"pc":139.45,"tx":38.85,"pr":288.81,"t":428.26,"job":"Rogers Larry Malibu Mst Cylndr"},{"c":"Takara Roland","v":"2019 Jeep Cherokee","d":"2025-07-14","l":385,"p":395.85,"pc":334.19,"tx":62.05,"pr":467.25,"t":863.49,"job":"Roland Takara Jeep Ac Service"},{"c":"April Rucker","v":"2012 CHEVY SONIC","d":"2024-07-01","l":605,"p":809.2,"pc":569.22,"tx":140.08,"pr":867.49,"t":1576.78,"job":"Rucker April Sonic Struts"},{"c":"Duenos Rucker","v":"2010 Ford Escape","d":"2024-04-09","l":298.5,"p":459.78,"pc":369.26,"tx":75.1,"pr":401.01,"t":845.38,"job":"Rucker Deneues Escape Brakes"},{"c":"Duenos Rucker","v":"2020 VW Tiguan","d":"2025-06-11","l":249.5,"p":302.9,"pc":207.77,"tx":19.35,"pr":356.63,"t":583.74,"job":"Rucker Deneues Vw Brake"},{"c":"DeeDee Sigee","v":"2022 Buick Encore GX","d":"2026-04-27","l":165,"p":0,"pc":0,"tx":0,"pr":165,"t":165,"job":"Sigee Deedee "},{"c":"Reggie Simmons","v":"2012 Kia Forte","d":"2023-06-04","l":497.5,"p":832,"pc":570.7,"tx":129.63,"pr":894.43,"t":1465.13,"job":"Simmons Reggie Forte"},{"c":"Mike Sims","v":"2008 HONDA ACCORD","d":"2023-10-05","l":0,"p":134,"pc":91.92,"tx":13.07,"pr":49.05,"t":140.97,"job":"Sims Mike Accord Cranks Sen"},{"c":"Mike Sims","v":"2008 HONDA ACCORD","d":"2023-05-23","l":149.25,"p":459.06,"pc":342.82,"tx":59.31,"pr":339.81,"t":682.62,"job":"Sims Mike Accord Pwr Steer"},{"c":"Mike Sims","v":"2008 HONDA ACCORD","d":"2023-08-17","l":79.6,"p":361.57,"pc":254.88,"tx":43.01,"pr":198.28,"t":453.17,"job":"Sims Mike Accord Spark Plug"},{"c":"Mike Sims","v":"2008 HONDA ACCORD","d":"2023-06-08","l":399.75,"p":623.56,"pc":0,"tx":99.77,"pr":1023.31,"t":1135.08,"job":"Sims Mike Accord Water Pump"},{"c":"Mike Smith","v":"2015 MERCEDES S550","d":"2023-05-05","l":546.01,"p":1174.58,"pc":786.38,"tx":0,"pr":949.2,"t":1735.58,"job":"Smith Mike 1"},{"c":"Mike Smith","v":"1997 FORD -XLT","d":"2023-07-02","l":148.75,"p":241.34,"pc":186.23,"tx":38.03,"pr":257.89,"t":444.13,"job":"Smith Mike Ford Brakes"},{"c":"Mike Smith","v":"2015 MERCEDES-BENZ S550","d":"2023-05-05","l":49.75,"p":240.24,"pc":169.01,"tx":28.27,"pr":155.25,"t":324.26,"job":"Smith Mike S550 Battery"},{"c":"Mike Smith","v":"2015 MERCEDES-BENZ S550","d":null,"l":148.75,"p":950.17,"pc":752.63,"tx":107.14,"pr":358.29,"t":1110.92,"job":"Smith Mike S550 Brakes"},{"c":"Sophia Jones","v":"2013 Hyundai Sonata","d":"2023-10-24","l":176.7,"p":341.73,"pc":93.38,"tx":51.72,"pr":438.23,"t":583.32,"job":"Sophia Jones Sonata Brakes"},{"c":"Steve Armstrong","v":"2019 GMC Sierra Denali","d":"2023-02-06","l":109.2,"p":92.61,"pc":57.88,"tx":0,"pr":158.93,"t":216.81,"job":"Steve Armstrong Denali Drive Be"},{"c":"Steve Burford","v":"2019 BMW X4","d":"2024-06-11","l":27.95,"p":77.49,"pc":80.02,"tx":10.67,"pr":29.45,"t":120.14,"job":"Steve Burford  Bmw Oil Service"},{"c":"Steve Burford","v":"2019 BMW X4","d":"2026-05-12","l":55,"p":201.11,"pc":164.9,"tx":20.63,"pr":101.67,"t":287.2,"job":"Steve Burford Bmw Lug Repair"},{"c":"Steve Burford","v":"2019 BMW X4","d":"2023-11-04","l":85.75,"p":197.02,"pc":63.47,"tx":26.86,"pr":230.55,"t":319.88,"job":"Steve Burford Bmw Oil Change"},{"c":"Steve Burford","v":"2001 Toyota Camry","d":"2023-09-11","l":99.5,"p":157.7,"pc":116.53,"tx":40.89,"pr":148.86,"t":265.4,"job":"Steve Burford Camry Balancer"},{"c":"Steve Burford","v":"2001 Toyota Camry","d":"2024-04-01","l":27.95,"p":38.74,"pc":39.7,"tx":6.7,"pr":29.01,"t":75.41,"job":"Steve Burford Camry Oil Change"},{"c":"Steve Burford","v":"2001 Toyota Camry","d":"2023-10-18","l":109.2,"p":36.96,"pc":25.35,"tx":13.49,"pr":122.92,"t":148.27,"job":"Steve Burford Camry Thermostat"},{"c":"James Stockman","v":"20004 TOYOTA TUNDRA","d":"2024-05-05","l":36,"p":302.37,"pc":235.51,"tx":34.52,"pr":118.58,"t":388.62,"job":"Stockman James Brakes"},{"c":"James Stockman JR","v":"2017 TOYOTA COROLLA","d":"2024-07-08","l":110,"p":25.6,"pc":17.56,"tx":13.35,"pr":119.37,"t":150.28,"job":"Stockman James Jr Blower"},{"c":"James Stockman JR","v":"2017 TOYOTA COROLLA","d":"2024-05-13","l":397,"p":443.47,"pc":307.28,"tx":84.14,"pr":555.69,"t":947.11,"job":"Stockman James Jr Brakes"},{"c":"James Stockman","v":"2004 TOYOTA TUNDRA","d":"2024-05-26","l":298.5,"p":651.7,"pc":452.37,"tx":94.84,"pr":520.33,"t":1067.53,"job":"Stockman James Struts"},{"c":"James Stockman","v":"20004 TOYOTA TUNDRA","d":"2024-09-21","l":30,"p":89.5,"pc":84.35,"tx":12.11,"pr":39.8,"t":136.26,"job":"Stockman James Tundra Oil"},{"c":"James Stockman","v":"20004 TOYOTA TUNDRA","d":"2024-10-07","l":165,"p":545.15,"pc":373.94,"tx":71.43,"pr":358.71,"t":804.09,"job":"Stockman James Tundra Tune Up"},{"c":"Vernita Stockman","v":"2015 MERCEDES-BENZ CLA250","d":"2025-06-24","l":300,"p":495.97,"pc":340.2,"tx":78.78,"pr":467.76,"t":886.74,"job":"Stockman Vernita Ford Brakes"},{"c":"Anthony Tate","v":"2015 Ford F-150","d":"2024-09-23","l":0,"p":0,"pc":0,"tx":0,"pr":0,"t":0,"job":"Tate Anthony F150 Brakes"},{"c":"Anthony Tate","v":"2015 Ford F-150","d":"2024-02-03","l":248.25,"p":345.41,"pc":236.93,"tx":59.05,"pr":368.73,"t":664.71,"job":"Tate Anthony F150 Brakes 1"},{"c":"Anthony Tate","v":"2015 Ford F-150","d":"2023-05-21","l":0,"p":69.72,"pc":76.52,"tx":6.8,"pr":6.0,"t":82.52,"job":"Tate Anthony F150 O2 Sensor"},{"c":"Anthony Tate","v":"2015 Ford F-150","d":"2024-07-21","l":605,"p":511.61,"pc":357.26,"tx":111.06,"pr":781.85,"t":1250.17,"job":"Tate Anthony F150 Radiator"},{"c":"Anthony Tate","v":"2006 Toyota Highlander","d":"2025-07-24","l":165,"p":0,"pc":0,"tx":16.09,"pr":165,"t":181.09,"job":"Tate Anthony Hghlander Compress"},{"c":"Anthony Tate","v":"2006 Toyota Highlander","d":"2024-12-07","l":165,"p":241.76,"pc":0,"tx":40.88,"pr":419.33,"t":460.22,"job":"Tate Anthony Hghlander Headligh"},{"c":"Steve Taylor","v":"2005 FORD 500","d":"2025-06-16","l":300,"p":447.97,"pc":307.28,"tx":75.12,"pr":463.19,"t":845.59,"job":"Taylor Steve Ford 500 Brakes"},{"c":"Steve Taylor","v":"2005 FORD 500","d":"2025-09-09","l":275,"p":397.44,"pc":281.41,"tx":67.58,"pr":411.69,"t":760.68,"job":"Taylor Steve Ford 500 Strut"},{"c":"Steve Taylor","v":"2011 Ram 1500","d":"2024-10-04","l":110,"p":124,"pc":87.8,"tx":23.44,"pr":152.65,"t":263.89,"job":"Taylor Steve Ram Headlight"},{"c":"Steve Taylor","v":"2011 Ram 1500","d":"2024-10-04","l":220,"p":213.12,"pc":146.19,"tx":6.44,"pr":298.02,"t":450.65,"job":"Taylor Steve Ram O2 Sensors"},{"c":"Steve Taylor","v":"2017 GMC Yukon SLT","d":"2023-04-28","l":109.2,"p":305.37,"pc":190.86,"tx":0,"pr":233.71,"t":424.57,"job":"Taylor Steve Yukon"},{"c":"Steve Taylor","v":"2017 GMC Yukon SLT","d":"2025-06-23","l":30,"p":103.24,"pc":82.48,"tx":13.51,"pr":56.14,"t":152.13,"job":"Taylor Steve Yukon Oil Chang"},{"c":"Raymond Townsel","v":"2016 BMW X1","d":"2024-10-10","l":165,"p":379.71,"pc":285.68,"tx":55.03,"pr":278.78,"t":619.49,"job":"Townsel Ray Bmw Coils"},{"c":"Raymond Townsel","v":"2016 BMW X1","d":"2024-02-25","l":77.7,"p":243.75,"pc":156.37,"tx":32.51,"pr":177.08,"t":365.97,"job":"Townsel Ray Bmw X1 Brakes"},{"c":"Raymond Townsel","v":"2016 BMW X1","d":"2023-01-01","l":163.25,"p":446.7,"pc":299.09,"tx":0,"pr":322.86,"t":621.95,"job":"Townsel Ray Bmw X1 Frt Brake"},{"c":"Ray Townsel","v":"2016 BMW X1","d":"2023-10-14","l":30.68,"p":127.33,"pc":22.06,"tx":15.79,"pr":151.73,"t":173.79,"job":"Townsel Ray Bmw X1 Oil"},{"c":"Ray Townsel","v":"2016 BMW X1","d":"2025-10-08","l":30,"p":72.65,"pc":16.19,"tx":7.45,"pr":93.91,"t":110.1,"job":"Townsel Ray Bmw X1 Oil (2)"},{"c":"Ray Townsel","v":"2016 BMW X1","d":"2026-03-15","l":30,"p":65.65,"pc":45.03,"tx":6.73,"pr":54.03,"t":105.8,"job":"Townsel Ray Bmw X1 Oil Change ("},{"c":"Ray Townsel","v":"2018 Buick Encoure","d":"2023-09-05","l":49.75,"p":68.97,"pc":48.84,"tx":11.58,"pr":73.47,"t":122.31,"job":"Townsel Ray Encoure"},{"c":"Ray Townsel","v":"2018 Buick Encoure","d":"2023-09-13","l":308.45,"p":421.46,"pc":294.55,"tx":71.17,"pr":447.36,"t":741.9,"job":"Townsel Ray Encoure (2)"},{"c":"Ray Townsel","v":"2018 Buick Encoure","d":"2023-09-05","l":99.5,"p":187.55,"pc":132.8,"tx":27.99,"pr":164.01,"t":296.8,"job":"Townsel Ray Encoure Blw Motor"},{"c":"Ray Townsel","v":"2003 FORD EXPEDITION","d":"2023-10-14","l":30.68,"p":76.4,"pc":52.41,"tx":10.56,"pr":59.03,"t":111.44,"job":"Townsel Ray Expedition"},{"c":"Ray Townsel","v":"2022 GMC SIERRA 1500","d":"2026-03-15","l":30,"p":120.24,"pc":82.48,"tx":11.72,"pr":74.62,"t":168.83,"job":"Townsel Ray Gmc Sierra Oil Chan"},{"c":"Ray Townsel","v":"2022 GMC TERRAIN","d":"2026-05-01","l":30,"p":55.98,"pc":38.4,"tx":5.46,"pr":50.78,"t":94.64,"job":"Townsel Ray Gmc Terrain Oil Cha"},{"c":"Ray Townsel","v":"2022 GMC TERRAIN","d":"2026-05-01","l":165,"p":51.48,"pc":38.43,"tx":5.02,"pr":180.98,"t":224.44,"job":"Townsel Ray Gmc Terrain S Bushi"},{"c":"Ray Townsel","v":"2007 MUSTANG","d":"2025-10-08","l":30,"p":54.45,"pc":42.02,"tx":5.58,"pr":48.02,"t":90.03,"job":"Townsel Ray Mustang Oil"},{"c":"Ray Townsel","v":"2007 MUSTANG","d":"2026-03-15","l":52,"p":87.14,"pc":59.77,"tx":8.5,"pr":84.34,"t":152.16,"job":"Townsel Ray Mustang Oil (2)"},{"c":"Vay","v":"2010 Honda Civic","d":"2023-05-16","l":199,"p":475.87,"pc":394.28,"tx":65.8,"pr":352.39,"t":746.67,"job":"Vay Smith Civic Ac Compres"},{"c":"Vay","v":"2010 Honda Civic","d":"2023-06-15","l":148.75,"p":186.14,"pc":142.66,"tx":32.65,"pr":236.88,"t":379.55,"job":"Vay Smith Civic Frt Brakes"},{"c":"Vince","v":"2006 FORD F150","d":"2023-07-10","l":99.5,"p":81.93,"pc":69.14,"tx":17.69,"pr":116.96,"t":186.11,"job":"Vince"},{"c":"Cortez Ward","v":"2013 Land Rover Range Rover Sport","d":"2025-09-15","l":0,"p":303.13,"pc":212.78,"tx":31.09,"pr":106.11,"t":349.98,"job":"Ward Cortez Rang Rov Radiator"},{"c":"Quincy Ware","v":"2010 Honda Accord EX","d":"2024-05-13","l":453.55,"p":535.97,"pc":393.71,"tx":98.67,"pr":618.31,"t":1110.69,"job":"Ware Quincy Accord A-C"},{"c":"Quincy Ware","v":"2008 Chevrolet Avalanche","d":"2024-07-26","l":148.75,"p":265.48,"pc":186.56,"tx":41.73,"pr":241.48,"t":469.77,"job":"Ware Quincy Avalanche"},{"c":"Quincy Ware","v":"2008 Chevrolet Avalanche","d":"2026-05-25","l":70,"p":86.6,"pc":62.12,"tx":8.88,"pr":98.98,"t":169.98,"job":"Ware Quincy Avlanche Brakes"},{"c":"Edward Weatherly","v":"2019 Cadillac XT4","d":"2025-05-02","l":70,"p":75.39,"pc":65.77,"tx":14.56,"pr":83.54,"t":163.87,"job":"Weatherly Ed Cadillac Oil Serv"},{"c":"Edward Weatherly","v":"2019 Cadillac XT4","d":"2025-05-02","l":110,"p":54.54,"pc":37.41,"tx":16.32,"pr":129.97,"t":183.7,"job":"Weatherly Ed Cadillac Vapor Can"},{"c":"Patrice Weatherly","v":"2016 Hyundai Equus","d":"2025-05-09","l":30,"p":81.63,"pc":84.28,"tx":11.3,"pr":31.6,"t":127.17,"job":"Weatherly Patrice Equnox Oi (2)"},{"c":"Patrice Weatherly","v":"2016 Hyundai Equus","d":"2024-12-05","l":27.95,"p":81.63,"pc":84.28,"tx":11.1,"pr":29.55,"t":124.92,"job":"Weatherly Patrice Equnox Oil Se"},{"c":"William Cassan","v":"1994 GMC Sonoma","d":"2024-10-02","l":297,"p":341,"pc":241.45,"tx":63.93,"pr":414.28,"t":719.67,"job":"William Cassan Gmc Ac"}];
+
+// Works with Claude's built-in window.storage when available (e.g. inside
+// Claude), and transparently falls back to the browser's own localStorage
+// when it's not (e.g. hosted on GitHub Pages / Netlify / etc.) — same API
+// either way, so the rest of the app doesn't need to know which one it's using.
+const appStorage = (function(){
+  if(typeof window.storage !== 'undefined') return window.storage;
+  const PREFIX = 'mike-automotive:';
+  return {
+    async get(key){
+      const v = localStorage.getItem(PREFIX + key);
+      if(v === null) throw new Error('not found: ' + key);
+      return { key, value: v };
+    },
+    async set(key, value){
+      localStorage.setItem(PREFIX + key, value);
+      return { key, value };
+    },
+    async delete(key){
+      localStorage.removeItem(PREFIX + key);
+      return { key, deleted: true };
+    },
+    async list(prefix){
+      const keys = [];
+      for(let i=0; i<localStorage.length; i++){
+        const k = localStorage.key(i);
+        if(k && k.startsWith(PREFIX + (prefix||''))){
+          keys.push(k.slice(PREFIX.length));
+        }
+      }
+      return { keys };
+    }
+  };
+})();
+const LABOR_CODES = [{"d":"AIR CONDITION SERVICE","r":165.0,"code":"A/C"},{"d":"AIR CONDITION SERVICE FRONT AND REAR","r":176.0,"code":"AC F R"},{"d":"AIR CONDITION SERVICE RYF 12 OZ","r":250.0,"code":"AC RFY 1"},{"d":"AIR CONDITION SERVICE RFY 12 TO 24 OZ","r":300.0,"code":"AC RFY 2"},{"d":"AIR CONDITION SRVICE RFY 24 TO 32 OZ","r":385.0,"code":"AC RFY 3"},{"d":"Administration Fee","r":151.0,"code":"ADM"},{"d":"ALIGNMENT","r":110.0,"code":"AL1"},{"d":"ALIGNMENT/ COMPANY","r":135.0,"code":"AL2"},{"d":"ALIGNMENT TRUCKS","r":150.0,"code":"AL3"},{"d":"ALIGNMENT FOUR WHEEL","r":150.0,"code":"AL4"},{"d":"SERVICE REAR BRAKE PADS AND TURN ROTORS","r":198.0,"code":"BRK 1"},{"d":"SERVICE FRONT BRAKE PADS AND TURN ROTORS","r":198.0,"code":"BRK 2"},{"d":"SERVICE FRONT BRAKE PADS AND REPLACE ROTORS","r":150.0,"code":"BRK 3"},{"d":"SERVICE REAR BRAKE PADS AND REPLACE ROTORS","r":150.0,"code":"BRK 4"},{"d":"SERVICE FRONT BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)","r":198.0,"code":"BRK 5"},{"d":"SERVICE REAR BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)","r":198.0,"code":"BRK 6"},{"d":"FRONT BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)","r":150.0,"code":"BRK 7"},{"d":"REAR BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)","r":150.0,"code":"BRK 8"},{"d":"SERVICE REAR BRAKE SHOES","r":110.0,"code":"BRK 9"},{"d":"SERVICE REAR BRAKE SHOES AND TURN DRUM","r":150.0,"code":"BRK 91"},{"d":"FRONT BRAKE PADS SERVCE ONLY","r":99.5,"code":"BRK FRONT"},{"d":"REAR BRAKE PADS SERVCE ONLY","r":99.5,"code":"BRK REAR"},{"d":"FLUSH/BLEED BRAKE SYSTEM","r":99.5,"code":"BRK BLD"},{"d":"CHECK OUT SERVICE","r":61.0,"code":"CK OUT 2"},{"d":"Diagnostics Fee","r":110.0,"code":"DIAG"},{"d":"Freight","r":0.0,"code":"FRT"},{"d":"GAS","r":0.0,"code":"G"},{"d":"FUEL INJECTION CLEAN","r":110.0,"code":"INJ1"},{"d":"Intelligence Power Distribution Module","r":0.0,"code":"IPDM"},{"d":"TOPCARFIXER1","r":99.5,"code":"LAB"},{"d":"Standard Labor Rate","r":110.0,"code":"LAB2"},{"d":"TOPCARFIXER2","r":99.5,"code":"LAB3"},{"d":"LATE FEE","r":25.0,"code":"LF"},{"d":"OIL CHANGE AND ROTATE OVER \"18\" (BMW/AUDI/JAG)","r":155.0,"code":"LOF EUR"},{"d":"OIL CHANGE AND ROTATE UNDER \"18 (BMW/AUDI/JAG)","r":145.0,"code":"LOF EUR1"},{"d":"OIL CHANGE AND ROTATE OVER \"18\"","r":85.0,"code":"LOF RT"},{"d":"OIL CHANGE AND ROTATE UNDER \"18","r":70.0,"code":"LOF RT1"},{"d":"LUBE AND OIL FILTER","r":30.0,"code":"LOF1"},{"d":"OIL AND FILTER CHANGE /W SKID PLATE OR UNDER COVER","r":36.0,"code":"LOF2"},{"d":"OIL CHANGE W/ CUSTOMER PARTS","r":29.5,"code":"LOF3"},{"d":"OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER OVER 18\"","r":94.9,"code":"LOF4"},{"d":"OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER UNDER 18\"","r":80.4,"code":"LOF5"},{"d":"MISCELLANIES","r":75.0,"code":"MISC75"},{"d":"Computer Program","r":100.0,"code":"PRO100"},{"d":"MOUNT AND BALANCE OVER 18","r":39.0,"code":"R0T2"},{"d":"mount and balance CAR TIRE UNDER 18","r":34.0,"code":"ROT1"},{"d":"rotate and balance tires","r":65.0,"code":"ROT2"},{"d":"MOUNT TIRE ONLY","r":30.0,"code":"ROT3"},{"d":"ROTATE ONLY UNDER \"18\"","r":41.0,"code":"ROT4"},{"d":"ROTATE ONLY OVER\"18\"","r":58.0,"code":"ROT5"},{"d":"ROTATE AND BALANCE OVER\"18\"","r":76.0,"code":"ROT6"},{"d":"ROTOR TURN","r":21.0,"code":"ROT7"},{"d":"SHIPPING AND HANDLING","r":0.0,"code":"SHP N HND"},{"d":"TIRE DISPOSEL","r":3.0,"code":"TD1"},{"d":"TOW OUT OF AREA","r":200.0,"code":"TOW"},{"d":"TOW FEE CULP & SON","r":85.0,"code":"TOW001"},{"d":"TOW AFTER HOURS","r":125.0,"code":"TOW002"},{"d":"TIRE PLUG","r":25.0,"code":"TP1"},{"d":"TIRE PATCH NO BALANCE","r":42.0,"code":"TP2"},{"d":"TIRE PATCH W/ BALANCE","r":45.0,"code":"TP3"},{"d":"TIRE PRESSURE MONITOR REPROGRAM","r":99.5,"code":"TPM 1"},{"d":"REPLACE A/C COMPRESSOR","r":0,"code":"A/C COMP"},{"d":"REPLACE A/C CONDENSOR","r":0,"code":"A/C COND"},{"d":"REPLACE AC RESISTOR","r":0,"code":"RIS"},{"d":"REPLACE ALTERNATOR","r":0,"code":"ALT"},{"d":"REPLACE BLEND DOOR ACTUATOR","r":0,"code":"BLD DOOR"},{"d":"REPLACE BLOWER MOTOR","r":0,"code":"BL MOTOR"},{"d":"REPLACE CABIN AIR FILTER","r":0,"code":"CAB FILTER"},{"d":"REPLACE COOLANT TEMP SENSOR","r":0,"code":"TMP SENSOR"},{"d":"REPLACE DRIVE BELT","r":0,"code":"BELT"},{"d":"REPLACE ENGINE MOTOR MOUNT","r":0,"code":"MOT MOT"},{"d":"REPLACE ENGINE TORQUE MOUNT","r":0,"code":"TOR"},{"d":"REPLACE FRONT STRUTS SUSPENSION BOTH SIDES","r":0,"code":"STRUT FRT"},{"d":"REPLACE FRONT STRUTS SUSPENSION ONE SIDES","r":0,"code":"STRUT FRT"},{"d":"REPLACE HEADLIGHT BULBS","r":0,"code":"BULB"},{"d":"REPLACE IGNITION COIL","r":0,"code":"COIL"},{"d":"REPLACE MASS AIR FLOW SENSOR","r":0,"code":"MAP"},{"d":"REPLACE MASTER BRAKE CYLINDER","r":0,"code":"MAS CYL"},{"d":"REPLACE OXYGEN SENSORS","r":0,"code":"OXY"},{"d":"REPLACE PURGE VALVES","r":0,"code":"PG VALV"},{"d":"REPLACE RADIATOR/HOSES","r":0,"code":"RAD"},{"d":"REPLACE REAR SHOCKS","r":0,"code":"STRUT REAR"},{"d":"REPLACE SPARK PLUG AND IGNITION COIL","r":0,"code":"PLUG"},{"d":"REPLACE SWAY BAR BUSHING","r":0,"code":"SW BAR"},{"d":"REPLACE TAILGATE ACTUATOR","r":99.5,"code":"TAIL"},{"d":"REPLACE THROTTLE BODY","r":0,"code":"THT BODY"},{"d":"REPLACE TIE ROD END","r":0,"code":"TIE ROD"},{"d":"REPLACE TRANSMISSION FLUID","r":0,"code":"TRANS"},{"d":"REPLACE VALVE COVER GASKET","r":0,"code":"VLV GSK"},{"d":"REPLACE VAPOR/SOLENOID CANNISTER","r":0,"code":"VAP CAN"},{"d":"REPLACE WATER PUMP","r":0,"code":"H20 PUMP"},{"d":"REPLACE WHEEL BEARING/HUB","r":0,"code":"HUB"},{"d":"REPLACE WINDOW MOTOR","r":0,"code":"WIN REG"},{"d":"REPLACE STEERING GEAR","r":0,"code":"STR"}];
+const LABOR_LOOKUP = {};
+LABOR_CODES.forEach(it => { LABOR_LOOKUP[it.d.trim().toLowerCase()] = it.r; });
+let customLaborCodes = [];
+
+function rebuildLaborOptions(){
+  customLaborCodes.forEach(it=>{ LABOR_LOOKUP[it.d.trim().toLowerCase()] = Number(it.r)||0; });
+  const seen = new Set();
+  const merged = [];
+  customLaborCodes.concat(LABOR_CODES).forEach(it=>{
+    const key = it.d.trim().toLowerCase();
+    if(!seen.has(key)){ seen.add(key); merged.push(it); }
+  });
+  document.getElementById('laborCodesOptions').innerHTML = merged
+    .map(it => `<option value="${escapeHtml(it.d)}">`).join('');
+}
+
+const MARKUP_TIERS = [
+  {lo:1,      hi:100,    rate:0.60},
+  {lo:100.01, hi:300,    rate:0.53},
+  {lo:300.01, hi:800,    rate:0.33},
+  {lo:800.01, hi:1500,   rate:0.30}
+];
+function markupRateForCost(cost){
+  cost = Number(cost)||0;
+  if(cost <= 0) return 0;
+  for(const t of MARKUP_TIERS){ if(cost >= t.lo && cost <= t.hi) return t.rate; }
+  if(cost > MARKUP_TIERS[MARKUP_TIERS.length-1].hi) return MARKUP_TIERS[MARKUP_TIERS.length-1].rate;
+  return MARKUP_TIERS[0].rate;
+}
+
+let customInvoices = [];
+let allJobs = [];
+let sheetUrl = null;
+let jobGroups = [];
+let dtcCodes = [];
+let liId = 0;
+
+function renderDtcChips(){
+  const el = document.getElementById('dtcChips');
+  el.innerHTML = dtcCodes.map((code,i)=>
+    `<span class="dtc-chip">${escapeHtml(code)}<button type="button" data-i="${i}" title="Remove">✕</button></span>`
+  ).join('');
+  el.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      dtcCodes.splice(Number(b.dataset.i), 1);
+      renderDtcChips();
+    });
+  });
+}
+function addDtcFromInput(){
+  const input = document.getElementById('fDtcInput');
+  const val = input.value.trim().toUpperCase();
+  if(val && !dtcCodes.includes(val)){
+    dtcCodes.push(val);
+    renderDtcChips();
+  }
+  input.value = '';
+  input.focus();
+}
+document.getElementById('addDtcBtn').addEventListener('click', addDtcFromInput);
+document.getElementById('fDtcInput').addEventListener('keydown', e=>{
+  if(e.key === 'Enter'){ e.preventDefault(); addDtcFromInput(); }
+});
+
+// ---------- storage ----------
+async function loadCustomInvoices(){
+  try{
+    if(typeof appStorage === 'undefined'){
+      console.warn('Persistent storage is not available in this context.');
+    } else {
+      const list = await appStorage.list('invoice:', false);
+      if(list && list.keys && list.keys.length){
+        const results = await Promise.all(list.keys.map(k => appStorage.get(k, false).catch(()=>null)));
+        customInvoices = results.filter(Boolean).map(r => JSON.parse(r.value));
+      }
+    }
+  }catch(e){ console.warn('storage load failed', e); }
+  rebuildAllJobs();
+  renderDashboard();
+}
+
+function rebuildAllJobs(){
+  allJobs = SEED_JOBS.concat(customInvoices);
+}
+
+// ---------- Google Sheet sync ----------
+function setSyncStatus(text, isError){
+  const el = document.getElementById('syncStatus');
+  el.textContent = text;
+  el.style.color = isError ? 'var(--red)' : (sheetUrl ? 'var(--green)' : 'var(--ink-soft)');
+}
+
+async function loadSheetUrl(){
+  try{
+    if(typeof appStorage === 'undefined') return;
+    const res = await appStorage.get('config:sheetUrl', false).catch(()=>null);
+    if(res && res.value){
+      sheetUrl = res.value;
+      document.getElementById('sheetUrlInput').value = sheetUrl;
+    }
+  }catch(e){ console.warn('could not load saved sheet URL', e); }
+}
+
+async function saveSheetUrl(url){
+  sheetUrl = url;
+  try{
+    if(typeof appStorage !== 'undefined'){
+      await appStorage.set('config:sheetUrl', url, false);
+    }
+  }catch(e){ console.warn('could not persist sheet URL', e); }
+}
+
+function parseSheetRow(row){
+  const job = Object.assign({}, row);
+  ['dtc','groups'].forEach(k=>{
+    if(typeof job[k] === 'string' && job[k]){
+      try{ job[k] = JSON.parse(job[k]); }catch(e){ /* leave as-is */ }
+    }
+  });
+  ['l','p','pc','tx','pr','t'].forEach(k=>{ job[k] = Number(job[k])||0; });
+  job.custom = true;
+  return job;
+}
+
+function mergeById(localArr, remoteArr){
+  // Sheet data wins for any id it has (it may reflect edits made elsewhere);
+  // local-only ids (not yet pushed) are preserved rather than wiped out.
+  // Items with no id (older saves from before id tracking) are always kept.
+  const byId = new Map();
+  let fallbackN = 0;
+  const keyOf = item => item.id || ('__nokey_' + (fallbackN++));
+  localArr.forEach(item=>{ if(item) byId.set(keyOf(item), item); });
+  remoteArr.forEach(item=>{ if(item) byId.set(keyOf(item), item); });
+  return Array.from(byId.values());
+}
+
+async function pullFromSheet(showStatus){
+  if(!sheetUrl){ if(showStatus) setSyncStatus('Not connected', true); return; }
+  if(showStatus) setSyncStatus('Pulling latest…');
+  try{
+    const res = await fetch(sheetUrl, {method:'GET'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    customInvoices = mergeById(customInvoices, rows.map(parseSheetRow));
+    rebuildAllJobs();
+    renderDashboard();
+    setSyncStatus('Connected — synced ' + new Date().toLocaleTimeString());
+  }catch(e){
+    console.error('pull from sheet failed', e);
+    setSyncStatus('Could not reach the Sheet — check the URL and deployment access.', true);
+  }
+}
+
+async function pushToSheet(job){
+  if(!sheetUrl) return false;
+  try{
+    const res = await fetch(sheetUrl, {method:'POST', body: JSON.stringify(job)});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    return true;
+  }catch(e){
+    console.error('push to sheet failed', e);
+    return false;
+  }
+}
+
+document.getElementById('connectSheetBtn').addEventListener('click', async ()=>{
+  const url = document.getElementById('sheetUrlInput').value.trim();
+  if(!url){ setSyncStatus('Paste your Web App URL first.', true); return; }
+  await saveSheetUrl(url);
+  await pullFromSheet(true);
+});
+document.getElementById('pullSheetBtn').addEventListener('click', ()=> pullFromSheet(true));
+document.getElementById('disconnectSheetBtn').addEventListener('click', async ()=>{
+  sheetUrl = null;
+  document.getElementById('sheetUrlInput').value = '';
+  await saveSheetUrl('');
+  setSyncStatus('Not connected');
+});
+
+document.getElementById('pushAllBtn').addEventListener('click', async ()=>{
+  if(!sheetUrl){ setSyncStatus('Connect to a Sheet first.', true); return; }
+  const total = customInvoices.length + purchases.length + customLaborCodes.length;
+  if(!total){ setSyncStatus('No local data to push.'); return; }
+
+  let done = 0, failed = 0;
+  setSyncStatus('Pushing 0 / ' + total + '…');
+
+  for(const inv of customInvoices){
+    const ok = await pushToSheet(inv);
+    if(ok) done++; else failed++;
+    setSyncStatus('Pushing ' + (done+failed) + ' / ' + total + '…');
+  }
+  for(const p of purchases){
+    const ok = await pushPurchaseToSheet(p);
+    if(ok) done++; else failed++;
+    setSyncStatus('Pushing ' + (done+failed) + ' / ' + total + '…');
+  }
+  for(const lc of customLaborCodes){
+    const ok = await pushLaborCodeToSheet(lc);
+    if(ok) done++; else failed++;
+    setSyncStatus('Pushing ' + (done+failed) + ' / ' + total + '…');
+  }
+
+  setSyncStatus('✓ Pushed ' + done + ' / ' + total + ' to the Sheet' + (failed ? (' — ' + failed + ' failed, try again') : '') + '.', !!failed);
+});
+
+// ---------- Parts Purchases ----------
+let purchases = [];
+
+async function loadPurchases(){
+  try{
+    if(typeof appStorage === 'undefined') return;
+    const list = await appStorage.list('purchase:', false);
+    if(list && list.keys && list.keys.length){
+      const results = await Promise.all(list.keys.map(k => appStorage.get(k, false).catch(()=>null)));
+      purchases = results.filter(Boolean).map(r => JSON.parse(r.value));
+      renderPurchases();
+    }
+  }catch(e){ console.warn('purchase load failed', e); }
+}
+
+async function pullPurchasesFromSheet(){
+  if(!sheetUrl) return;
+  try{
+    const res = await fetch(sheetUrl + (sheetUrl.includes('?') ? '&' : '?') + 'type=purchases', {method:'GET'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    const remote = rows.map(r => Object.assign({}, r, { amount: Number(r.amount)||0 }));
+    purchases = mergeById(purchases, remote);
+    renderPurchases();
+  }catch(e){ console.warn('pull purchases failed', e); }
+}
+
+async function pushPurchaseToSheet(p){
+  if(!sheetUrl) return false;
+  try{
+    const res = await fetch(sheetUrl, {method:'POST', body: JSON.stringify(Object.assign({_type:'purchase'}, p))});
+    return res.ok;
+  }catch(e){ console.warn('push purchase failed', e); return false; }
+}
+
+let purchaseSortKey = 'date', purchaseSortDir = -1;
+
+function renderPurchases(){
+  const total = purchases.reduce((s,p)=> s + (Number(p.amount)||0), 0);
+  document.getElementById('purchaseCount').textContent = '(' + purchases.length + ')';
+  document.getElementById('purchaseTotal').textContent = 'Total: ' + fmt$(total);
+
+  const rows = purchases.slice().sort((a,b)=>{
+    let av = a[purchaseSortKey], bv = b[purchaseSortKey];
+    if(typeof av === 'string'){ av=(av||'').toLowerCase(); bv=(bv||'').toLowerCase(); }
+    if(av<bv) return -1*purchaseSortDir;
+    if(av>bv) return 1*purchaseSortDir;
+    return 0;
+  });
+
+  const tbody = document.getElementById('purchaseTableBody');
+  tbody.innerHTML = rows.map(p=>`<tr>
+    <td class="mono">${escapeHtml(p.date||'—')}</td>
+    <td>${escapeHtml(p.source||'—')}</td>
+    <td>${escapeHtml(p.part||'—')}</td>
+    <td>${escapeHtml(p.customer||'—')}</td>
+    <td>${escapeHtml(p.vehicle||'—')}</td>
+    <td class="num">${fmt$(p.amount)}</td>
+  </tr>`).join('') || '<tr><td colspan="6" style="padding:16px;color:var(--ink-soft);">No purchases logged yet.</td></tr>';
+}
+
+document.querySelectorAll('th[data-pkey]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.dataset.pkey;
+    if(purchaseSortKey === key){ purchaseSortDir *= -1; } else { purchaseSortKey = key; purchaseSortDir = -1; }
+    renderPurchases();
+  });
+});
+
+document.getElementById('purchaseFormToggle').addEventListener('click', ()=>{
+  const form = document.getElementById('purchaseForm');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('savePurchaseBtn').addEventListener('click', async ()=>{
+  const status = document.getElementById('purchaseStatus');
+  const date = document.getElementById('pDate').value || new Date().toISOString().slice(0,10);
+  const source = document.getElementById('pSource').value.trim();
+  const part = document.getElementById('pPart').value.trim();
+  const amount = Number(document.getElementById('pAmount').value) || 0;
+  const customer = document.getElementById('pCustomer').value.trim();
+  const vehicle = document.getElementById('pVehicle').value.trim();
+  const notes = document.getElementById('pNotes').value.trim();
+
+  if(!part || !amount){ status.style.color='var(--red)'; status.textContent = 'Add a part and an amount first.'; return; }
+
+  const p = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : ('pu-' + Date.now())),
+    date, source, part, amount, customer, vehicle, notes,
+    addedAt: new Date().toISOString()
+  };
+
+  let localOk = false;
+  try{
+    if(typeof appStorage !== 'undefined'){
+      await appStorage.set('purchase:' + p.id, JSON.stringify(p), false);
+    }
+    localOk = true;
+  }catch(e){ console.error('save purchase failed', e); }
+
+  let sheetOk = false;
+  if(sheetUrl){ sheetOk = await pushPurchaseToSheet(p); }
+
+  if(localOk){
+    purchases.push(p);
+    renderPurchases();
+    ['pSource','pPart','pAmount','pCustomer','pVehicle','pNotes'].forEach(id=>{ document.getElementById(id).value=''; });
+    status.style.color = 'var(--green)';
+    status.textContent = sheetUrl
+      ? ('✓ Logged' + (sheetOk ? ' and synced to the Sheet.' : ' (Sheet sync failed — saved locally though).'))
+      : '✓ Logged.';
+  } else {
+    status.style.color = 'var(--red)';
+    status.textContent = 'Could not save that purchase. Try again.';
+  }
+});
+
+document.getElementById('importPurchasesToggle').addEventListener('click', ()=>{
+  document.getElementById('purchaseCsvInput').click();
+});
+
+document.getElementById('purchaseCsvInput').addEventListener('change', async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  const status = document.getElementById('purchaseImportStatus');
+  status.style.color = 'var(--ink-soft)';
+  status.textContent = 'Reading file…';
+
+  let records;
+  try{
+    const text = await file.text();
+    records = parseCsv(text);
+  }catch(err){
+    status.style.color = 'var(--red)';
+    status.textContent = 'Could not read that file.';
+    return;
+  }
+  if(!records.length){
+    status.style.color = 'var(--red)';
+    status.textContent = 'No rows found in that CSV.';
+    return;
+  }
+
+  let saved = 0, syncedCount = 0;
+  for(let i=0; i<records.length; i++){
+    const r = records[i];
+    const p = {
+      id: (crypto.randomUUID ? crypto.randomUUID() : ('pu-' + Date.now() + '-' + i)),
+      date: r.date || '',
+      source: r.source || '',
+      part: r.part || '',
+      amount: Number(r.amount) || 0,
+      customer: r.customer || '',
+      vehicle: r.vehicle || '',
+      notes: r.notes || '',
+      addedAt: new Date().toISOString()
+    };
+    if(!p.part && !p.amount) continue;
+
+    try{
+      if(typeof appStorage !== 'undefined'){
+        await appStorage.set('purchase:' + p.id, JSON.stringify(p), false);
+      }
+      purchases.push(p);
+      saved++;
+    }catch(err){ console.error('import row save failed', err); continue; }
+
+    if(sheetUrl){
+      const ok = await pushPurchaseToSheet(p);
+      if(ok) syncedCount++;
+    }
+
+    if(i % 20 === 0){
+      status.textContent = 'Importing… ' + (i+1) + ' / ' + records.length;
+      renderPurchases();
+    }
+  }
+
+  renderPurchases();
+  status.style.color = 'var(--green)';
+  status.textContent = '✓ Imported ' + saved + ' purchase' + (saved===1?'':'s') +
+    (sheetUrl ? (' (' + syncedCount + ' synced to the Sheet).') : '.');
+});
+
+// ---------- Custom labor / price-list entries ----------
+async function loadCustomLaborCodes(){
+  try{
+    if(typeof appStorage === 'undefined') return;
+    const list = await appStorage.list('laborcode:', false);
+    if(list && list.keys && list.keys.length){
+      const results = await Promise.all(list.keys.map(k => appStorage.get(k, false).catch(()=>null)));
+      customLaborCodes = results.filter(Boolean).map(r => JSON.parse(r.value));
+      rebuildLaborOptions();
+    }
+  }catch(e){ console.warn('labor code load failed', e); }
+}
+
+async function pullLaborCodesFromSheet(){
+  if(!sheetUrl) return;
+  try{
+    const res = await fetch(sheetUrl + (sheetUrl.includes('?') ? '&' : '?') + 'type=laborcodes', {method:'GET'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const rows = await res.json();
+    const remote = rows.map(r => ({ id: r.id, d: r.d, r: Number(r.r)||0, addedAt: r.addedAt }));
+    customLaborCodes = mergeById(customLaborCodes, remote);
+    rebuildLaborOptions();
+  }catch(e){ console.warn('pull labor codes failed', e); }
+}
+
+async function pushLaborCodeToSheet(code){
+  if(!sheetUrl) return false;
+  try{
+    const res = await fetch(sheetUrl, {method:'POST', body: JSON.stringify(Object.assign({_type:'laborcode'}, code))});
+    return res.ok;
+  }catch(e){ console.warn('push labor code failed', e); return false; }
+}
+
+document.getElementById('pricelistToggle').addEventListener('click', ()=>{
+  const form = document.getElementById('pricelistForm');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+});
+
+document.getElementById('saveLaborCodeBtn').addEventListener('click', async ()=>{
+  const status = document.getElementById('pricelistStatus');
+  const desc = document.getElementById('newLaborDesc').value.trim();
+  const rate = Number(document.getElementById('newLaborRate').value);
+  if(!desc || !rate){ status.textContent = 'Add a description and a rate first.'; status.style.color='var(--red)'; return; }
+
+  const code = {
+    id: (crypto.randomUUID ? crypto.randomUUID() : ('lc-' + Date.now())),
+    d: desc, r: rate, addedAt: new Date().toISOString()
+  };
+
+  let localOk = false;
+  try{
+    if(typeof appStorage !== 'undefined'){
+      await appStorage.set('laborcode:' + code.id, JSON.stringify(code), false);
+    }
+    localOk = true;
+  }catch(e){ console.error('save labor code failed', e); }
+
+  let sheetOk = false;
+  if(sheetUrl){ sheetOk = await pushLaborCodeToSheet(code); }
+
+  if(localOk){
+    customLaborCodes.push(code);
+    rebuildLaborOptions();
+    document.getElementById('newLaborDesc').value = '';
+    document.getElementById('newLaborRate').value = '';
+    status.style.color = 'var(--green)';
+    status.textContent = sheetUrl
+      ? ('✓ Added to your price list' + (sheetOk ? ' and synced to the Sheet.' : ' (Sheet sync failed — it is saved locally though).'))
+      : '✓ Added to your price list.';
+  } else {
+    status.style.color = 'var(--red)';
+    status.textContent = 'Could not save that job. Try again.';
+  }
+});
+
+function downloadFile(filename, content, mime){
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function csvEscape(v){
+  const s = String(v==null ? '' : v);
+  return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+
+function parseCsv(text){
+  // Minimal RFC4180-ish CSV parser (handles quoted fields with commas/newlines).
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  for(let i=0; i<text.length; i++){
+    const c = text[i], next = text[i+1];
+    if(inQuotes){
+      if(c === '"' && next === '"'){ field += '"'; i++; }
+      else if(c === '"'){ inQuotes = false; }
+      else { field += c; }
+    } else {
+      if(c === '"'){ inQuotes = true; }
+      else if(c === ','){ row.push(field); field=''; }
+      else if(c === '\n' || c === '\r'){
+        if(c === '\r' && next === '\n') i++;
+        row.push(field); field='';
+        rows.push(row); row=[];
+      } else { field += c; }
+    }
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  if(!rows.length) return [];
+  const headers = rows[0].map(h=>h.trim());
+  return rows.slice(1).filter(r=>r.some(v=>v && v.trim())).map(r=>{
+    const obj = {};
+    headers.forEach((h,i)=>{ obj[h] = (r[i]||'').trim(); });
+    return obj;
+  });
+}
+
+function exportCsv(){
+  const cols = ['job','c','v','d','l','p','pc','tx','pr','t','phone','email','vin','plate'];
+  const headers = ['Job','Customer','Vehicle','Date','Labor','Parts','Parts Cost','Tax','Profit','Invoice Total','Phone','Email','VIN','Plate'];
+  const rows = [headers.join(',')];
+  allJobs.forEach(j=>{
+    rows.push(cols.map(c=>csvEscape(j[c])).join(','));
+  });
+  downloadFile('mike-automotive-jobs-' + new Date().toISOString().slice(0,10) + '.csv', rows.join('\n'), 'text/csv');
+}
+
+function downloadBackup(){
+  const backup = {version:1, exportedAt: new Date().toISOString(), invoices: customInvoices};
+  downloadFile('mike-automotive-backup-' + new Date().toISOString().slice(0,10) + '.json', JSON.stringify(backup, null, 2), 'application/json');
+}
+
+async function restoreBackup(file){
+  const status = document.getElementById('backupStatus');
+  try{
+    const text = await file.text();
+    const parsed = JSON.parse(text);
+    const invoices = Array.isArray(parsed) ? parsed : (parsed.invoices || []);
+    if(!invoices.length){ status.style.color='var(--red)'; status.textContent = 'No invoices found in that file.'; return; }
+    let restored = 0;
+    for(const inv of invoices){
+      const key = 'invoice:' + Date.now() + '-' + restored;
+      await appStorage.set(key, JSON.stringify(inv), false);
+      customInvoices.push(inv);
+      restored++;
+    }
+    rebuildAllJobs();
+    renderDashboard();
+    status.style.color='var(--green)';
+    status.textContent = 'Restored ' + restored + ' invoice' + (restored===1?'':'s') + '.';
+  }catch(e){
+    console.error(e);
+    status.style.color='var(--red)';
+    status.textContent = 'Could not read that backup file.';
+  }
+}
+
+document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+document.getElementById('downloadBackupBtn').addEventListener('click', downloadBackup);
+document.getElementById('restoreBackupBtn').addEventListener('click', ()=> document.getElementById('restoreFileInput').click());
+document.getElementById('restoreFileInput').addEventListener('change', e=>{
+  if(e.target.files && e.target.files[0]) restoreBackup(e.target.files[0]);
+  e.target.value = '';
+});
+
+// ---------- utils ----------
+const fmt$ = n => '$' + (Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmtCompact$ = n => '$' + (Number(n)||0).toLocaleString('en-US',{maximumFractionDigits:0});
+
+function marginOf(j){
+  return j.t > 0 ? (j.pr / j.t) * 100 : 0;
+}
+
+// ---------- Dashboard ----------
+let trendChartInst = null, custChartInst = null;
+let sortKey = 't', sortDir = -1;
+
+function renderDashboard(){
+  const totalRevenue = allJobs.reduce((s,j)=>s+j.t,0);
+  const totalProfit = allJobs.reduce((s,j)=>s+j.pr,0);
+  const totalCost = allJobs.reduce((s,j)=>s+j.pc,0);
+  const avgMargin = allJobs.length ? (allJobs.reduce((s,j)=>s+marginOf(j),0)/allJobs.length) : 0;
+  const avgTicket = allJobs.length ? totalRevenue/allJobs.length : 0;
+
+  document.getElementById('kpiRevenue').textContent = fmt$(totalRevenue);
+  document.getElementById('kpiJobCount').textContent = allJobs.length + ' jobs on file';
+  document.getElementById('kpiProfit').textContent = fmt$(totalProfit);
+  document.getElementById('kpiCost').textContent = fmt$(totalCost) + ' in parts cost';
+  document.getElementById('kpiAvgTicket').textContent = fmt$(avgTicket);
+  document.getElementById('kpiMargin').textContent = avgMargin.toFixed(1) + '%';
+
+  // top customer
+  const byCust = {};
+  allJobs.forEach(j=>{ byCust[j.c] = (byCust[j.c]||0) + j.t; });
+  const top = Object.entries(byCust).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('kpiTopCustomer').textContent = top ? ('top: ' + top[0]) : 'top customer —';
+
+  // gauge arc: circumference = 2*pi*32 = 201.06
+  const circ = 201.06;
+  const pct = Math.max(0, Math.min(100, avgMargin));
+  const offset = circ - (pct/100)*circ;
+  document.getElementById('marginArc').setAttribute('stroke-dashoffset', offset.toFixed(1));
+
+  renderTrendChart();
+  renderCustChart(byCust);
+  renderTable();
+}
+
+function renderTrendChart(){
+  const canvas = document.getElementById('trendChart');
+  if(typeof Chart === 'undefined'){ return; }
+  const byMonth = {};
+  allJobs.forEach(j=>{
+    if(!j.d) return;
+    const key = j.d.slice(0,7);
+    if(!byMonth[key]) byMonth[key] = {rev:0, profit:0};
+    byMonth[key].rev += j.t;
+    byMonth[key].profit += j.pr;
+  });
+  const months = Object.keys(byMonth).sort();
+  const labels = months.map(m=>{
+    const [y,mo] = m.split('-');
+    return new Date(y,mo-1,1).toLocaleDateString('en-US',{month:'short',year:'2-digit'});
+  });
+  const revData = months.map(m=>byMonth[m].rev.toFixed(2));
+  const profData = months.map(m=>byMonth[m].profit.toFixed(2));
+
+  try{
+    if(trendChartInst) trendChartInst.destroy();
+    const ctx = canvas.getContext('2d');
+    trendChartInst = new Chart(ctx, {
+      type:'line',
+      data:{ labels, datasets:[
+        {label:'Revenue', data:revData, borderColor:'#212B38', backgroundColor:'#212B3822', tension:.3, fill:true, pointRadius:3},
+        {label:'Profit', data:profData, borderColor:'#F2A400', backgroundColor:'#F2A40022', tension:.3, fill:true, pointRadius:3}
+      ]},
+      options:{
+        responsive:true,
+        plugins:{legend:{position:'bottom', labels:{font:{family:'Inter'}, boxWidth:12}}},
+        scales:{
+          y:{ticks:{callback:v=>'$'+v, font:{family:'IBM Plex Mono'}}, grid:{color:'#00000010'}},
+          x:{ticks:{font:{family:'IBM Plex Mono'}}, grid:{display:false}}
+        }
+      }
+    });
+  }catch(e){ console.warn('trend chart failed', e); }
+}
+
+function renderCustChart(byCust){
+  const canvas = document.getElementById('custChart');
+  if(typeof Chart === 'undefined'){ return; }
+  const top = Object.entries(byCust).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  try{
+    if(custChartInst) custChartInst.destroy();
+    const ctx = canvas.getContext('2d');
+    custChartInst = new Chart(ctx, {
+      type:'bar',
+      data:{ labels: top.map(t=>t[0]), datasets:[{ label:'Revenue', data: top.map(t=>t[1].toFixed(2)), backgroundColor:'#F2A400', borderRadius:3 }] },
+      options:{
+        indexAxis:'y',
+        responsive:true,
+        plugins:{legend:{display:false}},
+        scales:{
+          x:{ticks:{callback:v=>'$'+v, font:{family:'IBM Plex Mono'}}, grid:{color:'#00000010'}},
+          y:{ticks:{font:{family:'Inter',size:11}}, grid:{display:false}}
+        }
+      }
+    });
+  }catch(e){ console.warn('customer chart failed', e); }
+}
+
+function renderTable(){
+  const q = (document.getElementById('jobSearch').value||'').toLowerCase();
+  let rows = allJobs.filter(j =>
+    (j.c||'').toLowerCase().includes(q) ||
+    (j.v||'').toLowerCase().includes(q) ||
+    (j.job||'').toLowerCase().includes(q)
+  );
+  rows = rows.map(j=>Object.assign({}, j, {margin: marginOf(j)}));
+  rows.sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if(typeof av === 'string'){ av=(av||'').toLowerCase(); bv=(bv||'').toLowerCase(); }
+    if(av<bv) return -1*sortDir;
+    if(av>bv) return 1*sortDir;
+    return 0;
+  });
+
+  document.getElementById('rowCount').textContent = '(' + rows.length + ')';
+  const tbody = document.getElementById('jobTableBody');
+  tbody.innerHTML = rows.map(j=>{
+    const m = j.margin;
+    const cls = m>=55 ? 'hi' : m>=35 ? 'mid' : 'lo';
+    const badge = j.custom ? '<span class="custom-badge">NEW</span>' : '';
+    return `<tr>
+      <td>${escapeHtml(j.job||'—')}${badge}</td>
+      <td>${escapeHtml(j.c||'—')}</td>
+      <td>${escapeHtml(j.v||'—')}</td>
+      <td class="mono">${j.d||'—'}</td>
+      <td class="num">${fmt$(j.t)}</td>
+      <td class="num" style="color:var(--green)">${fmt$(j.pr)}</td>
+      <td class="num"><span class="tag-margin ${cls}">${m.toFixed(0)}%</span></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="padding:20px;color:var(--ink-soft);">No jobs match your search.</td></tr>';
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+document.querySelectorAll('thead th[data-key]').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const key = th.dataset.key;
+    if(sortKey === key){ sortDir *= -1; } else { sortKey = key; sortDir = -1; }
+    document.querySelectorAll('thead th').forEach(t=>t.classList.remove('sorted'));
+    th.classList.add('sorted');
+    renderTable();
+  });
+});
+document.getElementById('jobSearch').addEventListener('input', renderTable);
+
+// ---------- Tabs ----------
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-' + btn.dataset.view).classList.add('active');
+  });
+});
+
+// ---------- Invoice builder (grouped jobs) ----------
+function addJobGroup(vals){
+  const id = 'g' + (liId++);
+  jobGroups.push(Object.assign({id, name:'', labor:{desc:'',hours:0,rate:110}, parts:[]}, vals||{}));
+  renderJobGroups();
+}
+function addPartToGroup(groupId){
+  const g = jobGroups.find(x=>x.id===groupId);
+  if(!g) return;
+  g.parts.push({id:'p'+(liId++), desc:'', partNo:'', qty:1, cost:0, markup:0});
+  renderJobGroups();
+}
+
+function jobGroupSubtotal(g){
+  const laborTotal = (Number(g.labor.hours)||0)*(Number(g.labor.rate)||0);
+  const partsTotal = g.parts.reduce((s,r)=>{
+    const sell=(Number(r.cost)||0)+(Number(r.markup)||0);
+    return s + sell*(Number(r.qty)||0);
+  },0);
+  return laborTotal + partsTotal;
+}
+
+function renderJobGroups(){
+  const container = document.getElementById('jobGroupsContainer');
+  document.getElementById('jobsEmpty').style.display = jobGroups.length ? 'none':'block';
+
+  container.innerHTML = jobGroups.map((g, idx)=>{
+    const laborTotal = (Number(g.labor.hours)||0)*(Number(g.labor.rate)||0);
+    const partsRowsHtml = g.parts.map(r=>{
+      const sell = (Number(r.cost)||0)+(Number(r.markup)||0);
+      const total = sell*(Number(r.qty)||0);
+      return `<tr data-pid="${r.id}">
+        <td><input class="li-desc" value="${escapeHtml(r.desc)}" placeholder="e.g. Brake pads"></td>
+        <td><input class="li-partno" value="${escapeHtml(r.partNo)}" placeholder="#"></td>
+        <td><input class="li-qty" type="number" step="1" value="${r.qty}"></td>
+        <td><input class="li-cost" type="number" step="0.01" value="${r.cost}"></td>
+        <td><input class="li-markup" type="number" step="0.01" value="${r.markup}"></td>
+        <td class="li-total">${fmt$(total)}</td>
+        <td><button class="li-remove" title="Remove part">✕</button></td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="job-group" data-gid="${g.id}">
+      <div class="job-group-head">
+        <span class="job-num">JOB ${idx+1}</span>
+        <input class="job-name" value="${escapeHtml(g.name)}" placeholder="Job name — e.g. Front Brakes">
+        <button class="job-remove">✕ Remove Job</button>
+      </div>
+      <table class="line-table">
+        <thead><tr><th style="width:46%">Labor Description</th><th style="width:16%">Hours</th><th style="width:16%">Rate / hr</th><th style="width:16%">Total</th><th></th></tr></thead>
+        <tbody><tr>
+          <td><input class="li-desc job-labor-desc" list="laborCodesOptions" value="${escapeHtml(g.labor.desc)}" placeholder="Start typing a service…" autocomplete="off"></td>
+          <td><input class="job-labor-hours" type="number" step="0.1" value="${g.labor.hours}"></td>
+          <td><input class="job-labor-rate" type="number" step="0.01" value="${g.labor.rate}"></td>
+          <td class="li-total job-labor-total">${fmt$(laborTotal)}</td>
+          <td></td>
+        </tr></tbody>
+      </table>
+      <div class="job-sub-label">Parts for this job</div>
+      <table class="line-table job-parts-table">
+        <thead><tr><th style="width:26%">Description</th><th style="width:14%">Part #</th><th style="width:8%">Qty</th><th style="width:14%">Unit Cost</th><th style="width:14%">Markup ($, auto)</th><th style="width:14%">Total</th><th></th></tr></thead>
+        <tbody>${partsRowsHtml}</tbody>
+      </table>
+      <div class="job-parts-foot">
+        <button class="btn btn-ghost btn-sm add-part-to-job">+ Add Part</button>
+        <div class="job-subtotal">${escapeHtml(g.name || ('Job ' + (idx+1)))} Subtotal: <b>${fmt$(jobGroupSubtotal(g))}</b></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // wire up each group
+  container.querySelectorAll('.job-group').forEach(card=>{
+    const gid = card.dataset.gid;
+    const g = jobGroups.find(x=>x.id===gid);
+
+    const subtotalLabel = card.querySelector('.job-subtotal');
+    card.querySelector('.job-name').addEventListener('input', e=>{
+      g.name = e.target.value;
+      subtotalLabel.firstChild.textContent = (g.name || ('Job ' + (idx+1))) + ' Subtotal: ';
+    });
+    card.querySelector('.job-remove').addEventListener('click', ()=>{
+      jobGroups = jobGroups.filter(x=>x.id!==gid); renderJobGroups(); calcTotals();
+    });
+
+    const descInput = card.querySelector('.job-labor-desc');
+    const rateInput = card.querySelector('.job-labor-rate');
+    const hoursInput = card.querySelector('.job-labor-hours');
+    const laborTotalCell = card.querySelector('.job-labor-total');
+    const subtotalEl = card.querySelector('.job-subtotal b');
+
+    function refreshGroupLabor(){
+      const total = (Number(g.labor.hours)||0)*(Number(g.labor.rate)||0);
+      laborTotalCell.textContent = fmt$(total);
+      subtotalEl.textContent = fmt$(jobGroupSubtotal(g));
+    }
+    descInput.addEventListener('input', e=>{
+      g.labor.desc = e.target.value;
+      const match = LABOR_LOOKUP[e.target.value.trim().toLowerCase()];
+      if(match !== undefined){ g.labor.rate = match; rateInput.value = match; }
+      refreshGroupLabor(); calcTotals();
+    });
+    rateInput.addEventListener('input', e=>{ g.labor.rate=e.target.value; refreshGroupLabor(); calcTotals(); });
+    hoursInput.addEventListener('input', e=>{ g.labor.hours=e.target.value; refreshGroupLabor(); calcTotals(); });
+
+    card.querySelector('.add-part-to-job').addEventListener('click', ()=>{ addPartToGroup(gid); calcTotals(); });
+
+    card.querySelectorAll('.job-parts-table tbody tr').forEach(tr=>{
+      const pid = tr.dataset.pid;
+      const row = g.parts.find(r=>r.id===pid);
+      const markupInput = tr.querySelector('.li-markup');
+      function refreshPartLine(){
+        const sell=(Number(row.cost)||0)+(Number(row.markup)||0);
+        tr.querySelector('.li-total').textContent = fmt$(sell*(Number(row.qty)||0));
+        subtotalEl.textContent = fmt$(jobGroupSubtotal(g));
+      }
+      tr.querySelector('.li-desc').addEventListener('input', e=>{row.desc=e.target.value;});
+      tr.querySelector('.li-partno').addEventListener('input', e=>{row.partNo=e.target.value;});
+      tr.querySelector('.li-cost').addEventListener('input', e=>{
+        row.cost = e.target.value;
+        const rate = markupRateForCost(row.cost);
+        const autoMarkup = Number((Number(row.cost)||0) * rate).toFixed(2);
+        row.markup = autoMarkup;
+        markupInput.value = autoMarkup;
+        refreshPartLine(); calcTotals();
+      });
+      tr.querySelector('.li-qty').addEventListener('input', e=>{ row.qty=e.target.value; refreshPartLine(); calcTotals(); });
+      markupInput.addEventListener('input', e=>{ row.markup=e.target.value; refreshPartLine(); calcTotals(); });
+      tr.querySelector('.li-remove').addEventListener('click', ()=>{
+        g.parts = g.parts.filter(r=>r.id!==pid); renderJobGroups(); calcTotals();
+      });
+    });
+  });
+}
+
+function calcShopSupplies(partsTotal){
+  const pct = partsTotal * 0.052;
+  return Number((pct < 22.5 ? pct : 22.5).toFixed(2));
+}
+
+function calcTotals(){
+  const laborTotal = jobGroups.reduce((s,g)=> s + (Number(g.labor.hours)||0)*(Number(g.labor.rate)||0), 0);
+  const partsTotal = jobGroups.reduce((s,g)=> s + g.parts.reduce((s2,r)=>{
+    const sell = (Number(r.cost)||0)+(Number(r.markup)||0);
+    return s2 + sell*(Number(r.qty)||0);
+  }, 0), 0);
+  const partsCostTotal = jobGroups.reduce((s,g)=> s + g.parts.reduce((s2,r)=> s2 + (Number(r.cost)||0)*(Number(r.qty)||0), 0), 0);
+  const supplies = calcShopSupplies(partsTotal);
+  document.getElementById('fSupplies').value = supplies;
+  const taxRate = Number(document.getElementById('fTaxRate').value)||0;
+  const tax = (laborTotal + partsTotal + supplies) * (taxRate/100);
+  const grand = laborTotal + partsTotal + supplies + tax;
+  const profit = laborTotal + (partsTotal - partsCostTotal) + supplies;
+
+  document.getElementById('tLabor').textContent = fmt$(laborTotal);
+  document.getElementById('tParts').textContent = fmt$(partsTotal);
+  document.getElementById('tSupplies').textContent = fmt$(supplies);
+  document.getElementById('tTax').textContent = fmt$(tax);
+  document.getElementById('tGrand').textContent = fmt$(grand);
+  document.getElementById('tProfit').textContent = fmt$(profit);
+
+  return {laborTotal, partsTotal, partsCostTotal, supplies, tax, grand, profit};
+}
+
+document.getElementById('addJobGroup').addEventListener('click', ()=>{ addJobGroup(); calcTotals(); });
+document.getElementById('fTaxRate').addEventListener('input', calcTotals);
+
+function getIntakeFields(){
+  const year = document.getElementById('fYear').value.trim();
+  const make = document.getElementById('fMake').value.trim();
+  const model = document.getElementById('fModel').value.trim();
+  const vehicle = [year, make, model].filter(Boolean).join(' ');
+  return {
+    customer: document.getElementById('fCustomer').value.trim(),
+    phone: document.getElementById('fPhone').value.trim(),
+    email: document.getElementById('fEmail').value.trim(),
+    year, make, model, vehicle,
+    engine: document.getElementById('fEngine').value.trim(),
+    color: document.getElementById('fColor').value.trim(),
+    vin: document.getElementById('fVin').value.trim(),
+    milesIn: document.getElementById('fMilesIn').value.trim(),
+    milesOut: document.getElementById('fMilesOut').value.trim(),
+    plate: document.getElementById('fPlate').value.trim(),
+    symptoms: document.getElementById('fSymptoms').value.trim(),
+    dtc: dtcCodes.slice(),
+    work: document.getElementById('fWork').value.trim(),
+    advisory: document.getElementById('fAdvisory').value.trim(),
+    date: document.getElementById('fDate').value || new Date().toISOString().slice(0,10)
+  };
+}
+
+document.getElementById('printBtn').addEventListener('click', ()=>{
+  const totals = calcTotals();
+  const f = getIntakeFields();
+  const customer = f.customer || 'Customer';
+  const vehicle = f.vehicle;
+  const date = f.date;
+  const taxRate = Number(document.getElementById('fTaxRate').value)||0;
+  const supplies = Number(document.getElementById('fSupplies').value)||0;
+
+  const jobGroupsHtml = jobGroups.filter(g => g.name || g.labor.desc || g.parts.length).map((g, idx)=>{
+    const laborTotal = (Number(g.labor.hours)||0)*(Number(g.labor.rate)||0);
+    const partsTotal = g.parts.reduce((s,r)=>{ const sell=(Number(r.cost)||0)+(Number(r.markup)||0); return s+sell*(Number(r.qty)||0); },0);
+    const subtotal = laborTotal + partsTotal;
+    const partsRowsHtml = g.parts.filter(r=>r.desc||r.cost).map(r=>{
+      const sell = (Number(r.cost)||0)+(Number(r.markup)||0);
+      const total = sell*(Number(r.qty)||0);
+      return `<tr><td>${escapeHtml(r.desc||'—')}${r.partNo?('<br><span class="pn">#'+escapeHtml(r.partNo)+'</span>'):''}</td><td class="c">${Number(r.qty)||0}</td><td class="r">${fmt$(sell)}</td><td class="r">${fmt$(total)}</td></tr>`;
+    }).join('');
+    return `<div class="job-block">
+      <h4>Job ${idx+1}${g.name?(': '+escapeHtml(g.name)):''}</h4>
+      ${(g.labor.desc || g.labor.hours) ? `<table><thead><tr><th>Labor</th><th>Hrs</th><th style="text-align:right">Rate</th><th style="text-align:right">Total</th></tr></thead><tbody><tr><td>${escapeHtml(g.labor.desc||'—')}</td><td class="c">${Number(g.labor.hours)||0}</td><td class="r">${fmt$(g.labor.rate)}</td><td class="r">${fmt$(laborTotal)}</td></tr></tbody></table>` : ''}
+      ${partsRowsHtml ? `<table><thead><tr><th>Parts</th><th>Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Total</th></tr></thead><tbody>${partsRowsHtml}</tbody></table>` : ''}
+      <div class="job-subtotal-line">${escapeHtml(g.name || ('Job ' + (idx+1)))} Subtotal: ${fmt$(subtotal)}</div>
+    </div>`;
+  }).join('');
+
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Invoice — ${escapeHtml(customer)}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap');
+    *{box-sizing:border-box;}
+    body{font-family:'Inter',sans-serif;color:#1C232C;max-width:680px;margin:30px auto;padding:0 20px;}
+    h1{font-family:'Oswald',sans-serif;text-transform:uppercase;letter-spacing:.03em;font-size:24px;margin:0;}
+    .addr{font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5B6472;margin-top:4px;}
+    .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px dashed #D8D3C6;padding-bottom:16px;margin-bottom:16px;}
+    .head .meta{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5B6472;}
+    .info{display:flex;gap:24px;flex-wrap:wrap;margin-bottom:20px;font-size:13px;line-height:1.5;}
+    .info > div{flex:1;min-width:170px;}
+    .issue-block{font-size:12.5px;line-height:1.5;margin-bottom:10px;}
+    .issue-block strong{font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:10.5px;letter-spacing:.05em;color:#5B6472;display:block;margin-bottom:2px;}
+    .issue-block.advisory{background:#FCEFD8;color:#7a4f00;padding:9px 11px;border-radius:4px;}
+    .issue-block.advisory strong{color:#7a4f00;}
+    .info div span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#5B6472;font-weight:600;margin-bottom:3px;}
+    h4{font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:13px;letter-spacing:.06em;color:#212B38;margin:18px 0 8px;}
+    table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:4px;}
+    th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:#5B6472;padding:4px 6px;border-bottom:1.5px solid #212B38;}
+    td{padding:6px;border-bottom:1px solid #EDEAE3;}
+    td.c{text-align:center;} td.r{text-align:right;font-family:'IBM Plex Mono',monospace;}
+    .pn{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5B6472;}
+    .totals{width:280px;margin-left:auto;margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:13.5px;}
+    .totals .row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px dotted #D8D3C6;}
+    .totals .row.grand{border-top:2px solid #212B38;border-bottom:none;margin-top:6px;padding-top:8px;font-size:17px;font-weight:600;}
+    .warranty{font-size:10.5px;color:#5B6472;margin-top:26px;line-height:1.5;border-top:1px solid #D8D3C6;padding-top:12px;}
+    .job-block{margin-bottom:14px;padding-bottom:10px;border-bottom:1px dashed #D8D3C6;}
+    .job-subtotal-line{text-align:right;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#5B6472;margin-top:2px;}
+    @media print{ body{margin:0 auto;} }
+  </style></head>
+  <body>
+    <div class="head">
+      <div><h1>Mike Automotive</h1><div class="addr">901-219-8229 &nbsp;·&nbsp; 9060 Chimneyrock Blvd, Cordova, TN</div></div>
+      <div class="meta">INVOICE<br>${date}</div>
+    </div>
+    <div class="info">
+      <div><span>Customer</span>${escapeHtml(customer)}${f.phone?('<br>'+escapeHtml(f.phone)):''}${f.email?('<br>'+escapeHtml(f.email)):''}</div>
+      <div><span>Vehicle</span>${escapeHtml(vehicle||'—')}${f.engine?('<br>Engine: '+escapeHtml(f.engine)):''}${f.color?('<br>Color: '+escapeHtml(f.color)):''}${f.vin?('<br>VIN: '+escapeHtml(f.vin)):''}</div>
+      <div><span>Odometer / Plate</span>${f.milesIn?('In: '+escapeHtml(f.milesIn)+' mi'):''}${f.milesOut?('<br>Out: '+escapeHtml(f.milesOut)+' mi'):''}${f.plate?('<br>Plate: '+escapeHtml(f.plate)):''}</div>
+    </div>
+    ${(f.symptoms||f.dtc.length) ? `<div class="issue-block"><strong>Symptoms / DTC</strong>${escapeHtml(f.symptoms||'—')}${f.dtc.length?(' &nbsp;·&nbsp; DTC: '+f.dtc.map(escapeHtml).join(', ')):''}</div>` : ''}
+    ${f.work ? `<div class="issue-block"><strong>Work Performed</strong>${escapeHtml(f.work)}</div>` : ''}
+    ${f.advisory ? `<div class="issue-block advisory"><strong>Advisory Note</strong>${escapeHtml(f.advisory)}</div>` : ''}
+    ${jobGroupsHtml}
+    <div class="totals">
+      <div class="row"><span>Labor</span><span>${fmt$(totals.laborTotal)}</span></div>
+      <div class="row"><span>Parts</span><span>${fmt$(totals.partsTotal)}</span></div>
+      ${supplies ? `<div class="row"><span>Shop Supplies</span><span>${fmt$(supplies)}</span></div>` : ''}
+      <div class="row"><span>Tax (${taxRate}%)</span><span>${fmt$(totals.tax)}</span></div>
+      <div class="row grand"><span>Total Due</span><span>${fmt$(totals.grand)}</span></div>
+    </div>
+    <div class="warranty">90 DAYS LABOR WARRANTY UNLESS OTHERWISE SPECIFIED THROUGH OWNER. MOST PARTS ARE 12 MONTHS WARRANTY WITH EXCEPTION OF ELECTRICAL PARTS UNLESS OTHERWISE SPECIFIED THROUGH OWNER. CUSTOMER MUST BRING VEHICLE BACK TO MIKE AUTOMOTIVE FOR WARRANTY OF PARTS/LABOR.</div>
+  </body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>win.print(), 300);
+});
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  jobGroups = [];
+  dtcCodes = [];
+  ['fCustomer','fPhone','fEmail','fYear','fMake','fModel','fEngine','fColor','fVin','fMilesIn','fMilesOut','fPlate','fSymptoms','fDtcInput','fWork','fAdvisory'].forEach(id=>{
+    document.getElementById(id).value='';
+  });
+  document.getElementById('fDate').value='';
+  document.getElementById('fTaxRate').value='9.75';
+  renderJobGroups(); renderDtcChips(); calcTotals();
+  document.getElementById('savedFlash').style.display='none';
+});
+
+document.getElementById('saveBtn').addEventListener('click', async ()=>{
+  const totals = calcTotals();
+  const f = getIntakeFields();
+  if(!f.customer){ alert('Add a customer name before saving.'); return; }
+
+  const id = (crypto.randomUUID ? crypto.randomUUID() : ('inv-' + Date.now() + '-' + Math.random().toString(36).slice(2)));
+  const job = {
+    id, c: f.customer, v: f.vehicle || 'Unknown vehicle', d: f.date,
+    l: Number(totals.laborTotal.toFixed(2)), p: Number(totals.partsTotal.toFixed(2)),
+    pc: Number(totals.partsCostTotal.toFixed(2)), tx: Number(totals.tax.toFixed(2)),
+    pr: Number(totals.profit.toFixed(2)), t: Number(totals.grand.toFixed(2)),
+    job: f.customer + (f.vehicle ? (' — ' + f.vehicle) : ''), custom: true,
+    phone: f.phone, email: f.email, engine: f.engine, color: f.color, vin: f.vin,
+    milesIn: f.milesIn, milesOut: f.milesOut, plate: f.plate,
+    symptoms: f.symptoms, dtc: f.dtc, work: f.work, advisory: f.advisory,
+    groups: jobGroups.map(g=>({name:g.name, labor:g.labor, parts:g.parts})),
+    savedAt: new Date().toISOString()
+  };
+
+  const key = 'invoice:' + Date.now();
+  let localOk = false, sheetOk = false;
+  try{
+    if(typeof appStorage !== 'undefined'){
+      await appStorage.set(key, JSON.stringify(job), false);
+    }
+    localOk = true;
+  }catch(e){ console.error('local save failed', e); }
+
+  if(sheetUrl){ sheetOk = await pushToSheet(job); }
+
+  if(localOk || sheetOk){
+    customInvoices.push(job);
+    rebuildAllJobs();
+    renderDashboard();
+    const flash = document.getElementById('savedFlash');
+    if(sheetUrl){
+      flash.textContent = sheetOk ? '✓ Invoice saved and synced to the Sheet.' : '✓ Saved locally — Sheet sync failed, use "Pull Latest" or check your connection later.';
+    } else {
+      flash.textContent = '✓ Invoice saved to the shop ledger.';
+    }
+    flash.style.display = 'block';
+    setTimeout(()=>{ flash.style.display='none'; }, 4000);
+  } else {
+    alert('Could not save this invoice. Please try again.');
+  }
+});
+
+// ---------- init ----------
+rebuildLaborOptions();
+document.getElementById('fDate').valueAsDate = new Date();
+try{ addJobGroup(); }catch(e){ console.error('init addJobGroup failed', e); }
+try{ renderDtcChips(); }catch(e){ console.error('init renderDtcChips failed', e); }
+try{ calcTotals(); }catch(e){ console.error('init calcTotals failed', e); }
+loadCustomInvoices();
+loadCustomLaborCodes();
+loadPurchases();
+try{ document.getElementById('pDate').valueAsDate = new Date(); }catch(e){}
+loadSheetUrl().then(()=>{
+  setSyncStatus(sheetUrl ? 'Connected — pulling…' : 'Not connected');
+  if(sheetUrl){
+    pullFromSheet(true);
+    pullLaborCodesFromSheet();
+    pullPurchasesFromSheet();
+  }
+});
+
+window.addEventListener('load', ()=>{
+  if(typeof Chart !== 'undefined' && (!trendChartInst || !custChartInst)){
+    renderDashboard();
+  }
+});
+</script>
+</body>
+</html>
