@@ -518,6 +518,10 @@ body.locked .pin-lock-overlay{display:flex;}
         </div>
         <div class="field" style="margin-top:12px;"><label>Work to be Performed</label><textarea id="fWork" rows="2" placeholder="Replaced steering gear"></textarea></div>
         <div class="field" style="margin-top:12px;"><label>Advisory Note</label><textarea id="fAdvisory" rows="2" placeholder="Optional: additional recommendations for the customer"></textarea></div>
+        <div class="form-grid" style="padding:12px 0 0;grid-template-columns:1fr 1fr;">
+          <div class="field"><label>Next Oil Service Due (Mileage)</label><input id="fNextOilMiles" placeholder="e.g. 162,000 mi"></div>
+          <div class="field"><label>Next Oil Service Due (Date)</label><input id="fNextOilDate" type="date"></div>
+        </div>
       </div>
 
       <div class="lines-section">
@@ -645,7 +649,7 @@ const appStorage = (function(){
   };
 })();
 const LABOR_CODES = [{"d":"AIR CONDITION SERVICE","r":165.0,"code":"A/C"},{"d":"AIR CONDITION SERVICE FRONT AND REAR","r":176.0,"code":"AC F R"},{"d":"AIR CONDITION SERVICE RYF 12 OZ","r":250.0,"code":"AC RFY 1"},{"d":"AIR CONDITION SERVICE RFY 12 TO 24 OZ","r":300.0,"code":"AC RFY 2"},{"d":"AIR CONDITION SRVICE RFY 24 TO 32 OZ","r":385.0,"code":"AC RFY 3"},{"d":"Administration Fee","r":151.0,"code":"ADM"},{"d":"ALIGNMENT","r":110.0,"code":"AL1"},{"d":"ALIGNMENT/ COMPANY","r":135.0,"code":"AL2"},{"d":"ALIGNMENT TRUCKS","r":150.0,"code":"AL3"},{"d":"ALIGNMENT FOUR WHEEL","r":150.0,"code":"AL4"},{"d":"SERVICE REAR BRAKE PADS AND TURN ROTORS","r":198.0,"code":"BRK 1"},{"d":"SERVICE FRONT BRAKE PADS AND TURN ROTORS","r":198.0,"code":"BRK 2"},{"d":"SERVICE FRONT BRAKE PADS AND REPLACE ROTORS","r":150.0,"code":"BRK 3"},{"d":"SERVICE REAR BRAKE PADS AND REPLACE ROTORS","r":150.0,"code":"BRK 4"},{"d":"SERVICE FRONT BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)","r":198.0,"code":"BRK 5"},{"d":"SERVICE REAR BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)","r":198.0,"code":"BRK 6"},{"d":"FRONT BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)","r":150.0,"code":"BRK 7"},{"d":"REAR BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)","r":150.0,"code":"BRK 8"},{"d":"SERVICE REAR BRAKE SHOES","r":110.0,"code":"BRK 9"},{"d":"SERVICE REAR BRAKE SHOES AND TURN DRUM","r":150.0,"code":"BRK 91"},{"d":"FRONT BRAKE PADS SERVCE ONLY","r":99.5,"code":"BRK FRONT"},{"d":"REAR BRAKE PADS SERVCE ONLY","r":99.5,"code":"BRK REAR"},{"d":"FLUSH/BLEED BRAKE SYSTEM","r":99.5,"code":"BRK BLD"},{"d":"CHECK OUT SERVICE","r":61.0,"code":"CK OUT 2"},{"d":"Diagnostics Fee","r":110.0,"code":"DIAG"},{"d":"Freight","r":0.0,"code":"FRT"},{"d":"GAS","r":0.0,"code":"G"},{"d":"FUEL INJECTION CLEAN","r":110.0,"code":"INJ1"},{"d":"Intelligence Power Distribution Module","r":0.0,"code":"IPDM"},{"d":"TOPCARFIXER1","r":99.5,"code":"LAB"},{"d":"Standard Labor Rate","r":110.0,"code":"LAB2"},{"d":"TOPCARFIXER2","r":99.5,"code":"LAB3"},{"d":"LATE FEE","r":25.0,"code":"LF"},{"d":"OIL CHANGE AND ROTATE OVER \"18\" (BMW/AUDI/JAG)","r":155.0,"code":"LOF EUR"},{"d":"OIL CHANGE AND ROTATE UNDER \"18 (BMW/AUDI/JAG)","r":145.0,"code":"LOF EUR1"},{"d":"OIL CHANGE AND ROTATE OVER \"18\"","r":85.0,"code":"LOF RT"},{"d":"OIL CHANGE AND ROTATE UNDER \"18","r":70.0,"code":"LOF RT1"},{"d":"LUBE AND OIL FILTER","r":30.0,"code":"LOF1"},{"d":"OIL AND FILTER CHANGE /W SKID PLATE OR UNDER COVER","r":36.0,"code":"LOF2"},{"d":"OIL CHANGE W/ CUSTOMER PARTS","r":29.5,"code":"LOF3"},{"d":"OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER OVER 18\"","r":94.9,"code":"LOF4"},{"d":"OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER UNDER 18\"","r":80.4,"code":"LOF5"},{"d":"MISCELLANIES","r":75.0,"code":"MISC75"},{"d":"Computer Program","r":100.0,"code":"PRO100"},{"d":"MOUNT AND BALANCE OVER 18","r":39.0,"code":"R0T2"},{"d":"mount and balance CAR TIRE UNDER 18","r":34.0,"code":"ROT1"},{"d":"rotate and balance tires","r":65.0,"code":"ROT2"},{"d":"MOUNT TIRE ONLY","r":30.0,"code":"ROT3"},{"d":"ROTATE ONLY UNDER \"18\"","r":41.0,"code":"ROT4"},{"d":"ROTATE ONLY OVER\"18\"","r":58.0,"code":"ROT5"},{"d":"ROTATE AND BALANCE OVER\"18\"","r":76.0,"code":"ROT6"},{"d":"ROTOR TURN","r":21.0,"code":"ROT7"},{"d":"SHIPPING AND HANDLING","r":0.0,"code":"SHP N HND"},{"d":"TIRE DISPOSEL","r":3.0,"code":"TD1"},{"d":"TOW OUT OF AREA","r":200.0,"code":"TOW"},{"d":"TOW FEE CULP & SON","r":85.0,"code":"TOW001"},{"d":"TOW AFTER HOURS","r":125.0,"code":"TOW002"},{"d":"TIRE PLUG","r":25.0,"code":"TP1"},{"d":"TIRE PATCH NO BALANCE","r":42.0,"code":"TP2"},{"d":"TIRE PATCH W/ BALANCE","r":45.0,"code":"TP3"},{"d":"TIRE PRESSURE MONITOR REPROGRAM","r":99.5,"code":"TPM 1"},{"d":"REPLACE A/C COMPRESSOR","r":0,"code":"A/C COMP"},{"d":"REPLACE A/C CONDENSOR","r":0,"code":"A/C COND"},{"d":"REPLACE AC RESISTOR","r":0,"code":"RIS"},{"d":"REPLACE ALTERNATOR","r":0,"code":"ALT"},{"d":"REPLACE BLEND DOOR ACTUATOR","r":0,"code":"BLD DOOR"},{"d":"REPLACE BLOWER MOTOR","r":0,"code":"BL MOTOR"},{"d":"REPLACE CABIN AIR FILTER","r":0,"code":"CAB FILTER"},{"d":"REPLACE COOLANT TEMP SENSOR","r":0,"code":"TMP SENSOR"},{"d":"REPLACE DRIVE BELT","r":0,"code":"BELT"},{"d":"REPLACE ENGINE MOTOR MOUNT","r":0,"code":"MOT MOT"},{"d":"REPLACE ENGINE TORQUE MOUNT","r":0,"code":"TOR"},{"d":"REPLACE FRONT STRUTS SUSPENSION BOTH SIDES","r":0,"code":"STRUT FRT"},{"d":"REPLACE FRONT STRUTS SUSPENSION ONE SIDES","r":0,"code":"STRUT FRT"},{"d":"REPLACE HEADLIGHT BULBS","r":0,"code":"BULB"},{"d":"REPLACE IGNITION COIL","r":0,"code":"COIL"},{"d":"REPLACE MASS AIR FLOW SENSOR","r":0,"code":"MAP"},{"d":"REPLACE MASTER BRAKE CYLINDER","r":0,"code":"MAS CYL"},{"d":"REPLACE OXYGEN SENSORS","r":0,"code":"OXY"},{"d":"REPLACE PURGE VALVES","r":0,"code":"PG VALV"},{"d":"REPLACE RADIATOR/HOSES","r":0,"code":"RAD"},{"d":"REPLACE REAR SHOCKS","r":0,"code":"STRUT REAR"},{"d":"REPLACE SPARK PLUG AND IGNITION COIL","r":0,"code":"PLUG"},{"d":"REPLACE SWAY BAR BUSHING","r":0,"code":"SW BAR"},{"d":"REPLACE TAILGATE ACTUATOR","r":99.5,"code":"TAIL"},{"d":"REPLACE THROTTLE BODY","r":0,"code":"THT BODY"},{"d":"REPLACE TIE ROD END","r":0,"code":"TIE ROD"},{"d":"REPLACE TRANSMISSION FLUID","r":0,"code":"TRANS"},{"d":"REPLACE VALVE COVER GASKET","r":0,"code":"VLV GSK"},{"d":"REPLACE VAPOR/SOLENOID CANNISTER","r":0,"code":"VAP CAN"},{"d":"REPLACE WATER PUMP","r":0,"code":"H20 PUMP"},{"d":"REPLACE WHEEL BEARING/HUB","r":0,"code":"HUB"},{"d":"REPLACE WINDOW MOTOR","r":0,"code":"WIN REG"},{"d":"REPLACE STEERING GEAR","r":0,"code":"STR"}];
-const SETUP_SCRIPT = "/**\n * Mike Automotive \u2014 Shop Ledger sync backend.\n * Paste this into Extensions > Apps Script on a Google Sheet, then\n * deploy as a Web App (Execute as: Me, Who has access: Anyone).\n */\n\nvar SHEET_NAME = 'Invoices';\nvar LABOR_SHEET_NAME = 'LaborCodes';\nvar PURCHASE_SHEET_NAME = 'PartsPurchases';\n\n// FIELD_KEYS defines the real data order (used for reading/writing \u2014 never change the order).\n// COLUMN_LABELS is just what's displayed in row 1 \u2014 safe to edit for readability.\nvar FIELD_KEYS = ['id','job','c','v','d','l','p','pc','tx','pr','t',\n                   'phone','email','engine','color','vin','milesIn','milesOut','plate',\n                   'symptoms','dtc','work','advisory','groups','savedAt','isQuote'];\nvar COLUMN_LABELS = ['ID','Job','Customer','Vehicle','Date','Labor ($)','Parts ($)','Parts Cost ($)',\n                      'Tax ($)','Profit ($)','Invoice Total ($)','Phone','Email','Engine','Color','VIN',\n                      'Miles In','Miles Out','License Plate','Symptoms / DTC Notes','DTC Codes',\n                      'Work Performed','Advisory Note','Job Groups (JSON)','Saved At','Is Quote'];\n\nvar LABOR_FIELD_KEYS = ['id','d','r','addedAt'];\nvar LABOR_COLUMN_LABELS = ['ID','Job Description','Rate ($/hr)','Added At'];\n\nvar PURCHASE_FIELD_KEYS = ['id','date','source','part','amount','customer','vehicle','notes','addedAt'];\nvar PURCHASE_COLUMN_LABELS = ['ID','Date','Invoice # / Vendor','Part / Supplies','Amount ($)','Customer','Vehicle','Notes','Logged At'];\n\nfunction doGet(e) {\n  var type = (e.parameter && e.parameter.type) || 'invoices';\n  if (type === 'laborcodes') {\n    return jsonResponse_(readSheet_(getLaborSheet_(), LABOR_FIELD_KEYS));\n  }\n  if (type === 'purchases') {\n    return jsonResponse_(readSheet_(getPurchaseSheet_(), PURCHASE_FIELD_KEYS));\n  }\n  return jsonResponse_(readSheet_(getSheet_(), FIELD_KEYS));\n}\n\nfunction doPost(e) {\n  var payload = JSON.parse(e.postData.contents);\n  if (payload._type === 'laborcode') {\n    upsertRow_(getLaborSheet_(), LABOR_FIELD_KEYS, payload);\n  } else if (payload._type === 'purchase') {\n    upsertRow_(getPurchaseSheet_(), PURCHASE_FIELD_KEYS, payload);\n  } else {\n    upsertRow_(getSheet_(), FIELD_KEYS, payload);\n  }\n  return jsonResponse_({ ok: true });\n}\n\n// Reads rows by fixed column POSITION (matching FIELD_KEYS), ignoring whatever\n// text is actually in row 1 \u2014 so you can freely rename headers for readability.\nfunction readSheet_(sheet, fieldKeys) {\n  var data = sheet.getDataRange().getValues();\n  if (data.length < 2) return [];\n  return data.slice(1).map(function(row) {\n    var obj = {};\n    fieldKeys.forEach(function(key, i) { obj[key] = row[i]; });\n    return obj;\n  });\n}\n\nfunction appendRow_(sheet, fieldKeys, payload) {\n  var row = fieldKeys.map(function(k) {\n    var v = payload[k];\n    if (v === undefined || v === null) return '';\n    return (typeof v === 'object') ? JSON.stringify(v) : v;\n  });\n  sheet.appendRow(row);\n}\n\n// Like appendRow_, but if a row with the same id already exists, it overwrites\n// that row in place instead of adding a duplicate \u2014 this is what makes editing\n// and re-saving an existing invoice/purchase/labor code actually update it.\nfunction upsertRow_(sheet, fieldKeys, payload) {\n  var row = fieldKeys.map(function(k) {\n    var v = payload[k];\n    if (v === undefined || v === null) return '';\n    return (typeof v === 'object') ? JSON.stringify(v) : v;\n  });\n\n  var idCol = fieldKeys.indexOf('id');\n  var id = payload.id;\n  if (id && idCol > -1) {\n    var data = sheet.getDataRange().getValues();\n    for (var r = 1; r < data.length; r++) {\n      if (String(data[r][idCol]) === String(id)) {\n        sheet.getRange(r + 1, 1, 1, row.length).setValues([row]);\n        return;\n      }\n    }\n  }\n  sheet.appendRow(row);\n}\n\nfunction getSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(COLUMN_LABELS);\n  return sheet;\n}\n\nfunction getLaborSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(LABOR_SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(LABOR_SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(LABOR_COLUMN_LABELS);\n  return sheet;\n}\n\nfunction getPurchaseSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(PURCHASE_SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(PURCHASE_SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(PURCHASE_COLUMN_LABELS);\n  return sheet;\n}\n\nfunction jsonResponse_(obj) {\n  return ContentService.createTextOutput(JSON.stringify(obj))\n    .setMimeType(ContentService.MimeType.JSON);\n}\n\n/**\n * One-time helper: run this manually (select \"relabelHeaders\" in the\n * function dropdown above, then click Run) if you already had data in\n * your sheet before this update, to fix your existing header row text.\n */\nfunction relabelHeaders() {\n  var invSheet = getSheet_();\n  invSheet.getRange(1, 1, 1, COLUMN_LABELS.length).setValues([COLUMN_LABELS]);\n  var laborSheet = getLaborSheet_();\n  laborSheet.getRange(1, 1, 1, LABOR_COLUMN_LABELS.length).setValues([LABOR_COLUMN_LABELS]);\n  var purchaseSheet = getPurchaseSheet_();\n  purchaseSheet.getRange(1, 1, 1, PURCHASE_COLUMN_LABELS.length).setValues([PURCHASE_COLUMN_LABELS]);\n}\n\n/**\n * One-time helper: run this manually (select \"seedLaborCodes\" in the\n * function dropdown above, then click Run) to populate the LaborCodes\n * tab with your original shop price list. Safe to re-run \u2014 it will\n * skip any description that already exists in the sheet.\n */\nvar SEED_LABOR_CODES = [\n  {d:'AIR CONDITION SERVICE', r:165.0},\n  {d:'AIR CONDITION SERVICE FRONT AND REAR', r:176.0},\n  {d:'AIR CONDITION SERVICE RYF 12 OZ', r:250.0},\n  {d:'AIR CONDITION SERVICE RFY 12 TO 24 OZ', r:300.0},\n  {d:'AIR CONDITION SRVICE RFY 24 TO 32 OZ', r:385.0},\n  {d:'Administration Fee', r:151.0},\n  {d:'ALIGNMENT', r:110.0},\n  {d:'ALIGNMENT/ COMPANY', r:135.0},\n  {d:'ALIGNMENT TRUCKS', r:150.0},\n  {d:'ALIGNMENT FOUR WHEEL', r:150.0},\n  {d:'SERVICE REAR BRAKE PADS AND TURN ROTORS', r:198.0},\n  {d:'SERVICE FRONT BRAKE PADS AND TURN ROTORS', r:198.0},\n  {d:'SERVICE FRONT BRAKE PADS AND REPLACE ROTORS', r:150.0},\n  {d:'SERVICE REAR BRAKE PADS AND REPLACE ROTORS', r:150.0},\n  {d:'SERVICE FRONT BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)', r:198.0},\n  {d:'SERVICE REAR BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)', r:198.0},\n  {d:'FRONT BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)', r:150.0},\n  {d:'REAR BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)', r:150.0},\n  {d:'SERVICE REAR BRAKE SHOES', r:110.0},\n  {d:'SERVICE REAR BRAKE SHOES AND TURN DRUM', r:150.0},\n  {d:'FRONT BRAKE PADS SERVCE ONLY', r:99.5},\n  {d:'REAR BRAKE PADS SERVCE ONLY', r:99.5},\n  {d:'FLUSH/BLEED BRAKE SYSTEM', r:99.5},\n  {d:'CHECK OUT SERVICE', r:61.0},\n  {d:'Diagnostics Fee', r:110.0},\n  {d:'Freight', r:0.0},\n  {d:'GAS', r:0.0},\n  {d:'FUEL INJECTION CLEAN', r:110.0},\n  {d:'Intelligence Power Distribution Module', r:0.0},\n  {d:'TOPCARFIXER1', r:99.5},\n  {d:'Standard Labor Rate', r:110.0},\n  {d:'TOPCARFIXER2', r:99.5},\n  {d:'LATE FEE', r:25.0},\n  {d:'OIL CHANGE AND ROTATE OVER \"18\" (BMW/AUDI/JAG)', r:155.0},\n  {d:'OIL CHANGE AND ROTATE UNDER \"18 (BMW/AUDI/JAG)', r:145.0},\n  {d:'OIL CHANGE AND ROTATE OVER \"18\"', r:85.0},\n  {d:'OIL CHANGE AND ROTATE UNDER \"18', r:70.0},\n  {d:'LUBE AND OIL FILTER', r:30.0},\n  {d:'OIL AND FILTER CHANGE /W SKID PLATE OR UNDER COVER', r:36.0},\n  {d:'OIL CHANGE W/ CUSTOMER PARTS', r:29.5},\n  {d:'OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER OVER 18\"', r:94.9},\n  {d:'OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER UNDER 18\"', r:80.4},\n  {d:'MISCELLANIES', r:75.0},\n  {d:'Computer Program', r:100.0},\n  {d:'MOUNT AND BALANCE OVER 18', r:39.0},\n  {d:'mount and balance CAR TIRE UNDER 18', r:34.0},\n  {d:'rotate and balance tires', r:65.0},\n  {d:'MOUNT TIRE ONLY', r:30.0},\n  {d:'ROTATE ONLY UNDER \"18\"', r:41.0},\n  {d:'ROTATE ONLY OVER\"18\"', r:58.0},\n  {d:'ROTATE AND BALANCE OVER\"18\"', r:76.0},\n  {d:'ROTOR TURN', r:21.0},\n  {d:'SHIPPING AND HANDLING', r:0.0},\n  {d:'TIRE DISPOSEL', r:3.0},\n  {d:'TOW OUT OF AREA', r:200.0},\n  {d:'TOW FEE CULP & SON', r:85.0},\n  {d:'TOW AFTER HOURS', r:125.0},\n  {d:'TIRE PLUG', r:25.0},\n  {d:'TIRE PATCH NO BALANCE', r:42.0},\n  {d:'TIRE PATCH W/ BALANCE', r:45.0},\n  {d:'TIRE PRESSURE MONITOR REPROGRAM', r:99.5},\n  {d:'REPLACE A/C COMPRESSOR', r:0},\n  {d:'REPLACE A/C CONDENSOR', r:0},\n  {d:'REPLACE AC RESISTOR', r:0},\n  {d:'REPLACE ALTERNATOR', r:0},\n  {d:'REPLACE BLEND DOOR ACTUATOR', r:0},\n  {d:'REPLACE BLOWER MOTOR', r:0},\n  {d:'REPLACE CABIN AIR FILTER', r:0},\n  {d:'REPLACE COOLANT TEMP SENSOR', r:0},\n  {d:'REPLACE DRIVE BELT', r:0},\n  {d:'REPLACE ENGINE MOTOR MOUNT', r:0},\n  {d:'REPLACE ENGINE TORQUE MOUNT', r:0},\n  {d:'REPLACE FRONT STRUTS SUSPENSION BOTH SIDES', r:0},\n  {d:'REPLACE FRONT STRUTS SUSPENSION ONE SIDES', r:0},\n  {d:'REPLACE HEADLIGHT BULBS', r:0},\n  {d:'REPLACE IGNITION COIL', r:0},\n  {d:'REPLACE MASS AIR FLOW SENSOR', r:0},\n  {d:'REPLACE MASTER BRAKE CYLINDER', r:0},\n  {d:'REPLACE OXYGEN SENSORS', r:0},\n  {d:'REPLACE PURGE VALVES', r:0},\n  {d:'REPLACE RADIATOR/HOSES', r:0},\n  {d:'REPLACE REAR SHOCKS', r:0},\n  {d:'REPLACE SPARK PLUG AND IGNITION COIL', r:0},\n  {d:'REPLACE SWAY BAR BUSHING', r:0},\n  {d:'REPLACE TAILGATE ACTUATOR', r:99.5},\n  {d:'REPLACE THROTTLE BODY', r:0},\n  {d:'REPLACE TIE ROD END', r:0},\n  {d:'REPLACE TRANSMISSION FLUID', r:0},\n  {d:'REPLACE VALVE COVER GASKET', r:0},\n  {d:'REPLACE VAPOR/SOLENOID CANNISTER', r:0},\n  {d:'REPLACE WATER PUMP', r:0},\n  {d:'REPLACE WHEEL BEARING/HUB', r:0},\n  {d:'REPLACE WINDOW MOTOR', r:0},\n  {d:'REPLACE STEERING GEAR', r:0}\n\n];\n\nfunction seedLaborCodes() {\n  var sheet = getLaborSheet_();\n  var existing = readSheet_(sheet, LABOR_FIELD_KEYS);\n  var existingDescs = {};\n  existing.forEach(function(row) {\n    if (row.d) existingDescs[String(row.d).trim().toLowerCase()] = true;\n  });\n  var added = 0;\n  SEED_LABOR_CODES.forEach(function(item) {\n    var key = item.d.trim().toLowerCase();\n    if (!existingDescs[key]) {\n      appendRow_(sheet, LABOR_FIELD_KEYS, {\n        id: Utilities.getUuid(),\n        d: item.d,\n        r: item.r,\n        addedAt: new Date().toISOString()\n      });\n      existingDescs[key] = true;\n      added++;\n    }\n  });\n  Logger.log('Added ' + added + ' labor codes.');\n}\n";
+const SETUP_SCRIPT = "/**\n * Mike Automotive \u2014 Shop Ledger sync backend.\n * Paste this into Extensions > Apps Script on a Google Sheet, then\n * deploy as a Web App (Execute as: Me, Who has access: Anyone).\n */\n\nvar SHEET_NAME = 'Invoices';\nvar LABOR_SHEET_NAME = 'LaborCodes';\nvar PURCHASE_SHEET_NAME = 'PartsPurchases';\n\n// FIELD_KEYS defines the real data order (used for reading/writing \u2014 never change the order).\n// COLUMN_LABELS is just what's displayed in row 1 \u2014 safe to edit for readability.\nvar FIELD_KEYS = ['id','job','c','v','d','l','p','pc','tx','pr','t',\n                   'phone','email','engine','color','vin','milesIn','milesOut','plate',\n                   'symptoms','dtc','work','advisory','groups','savedAt','isQuote','nextOilMiles','nextOilDate'];\nvar COLUMN_LABELS = ['ID','Job','Customer','Vehicle','Date','Labor ($)','Parts ($)','Parts Cost ($)',\n                      'Tax ($)','Profit ($)','Invoice Total ($)','Phone','Email','Engine','Color','VIN',\n                      'Miles In','Miles Out','License Plate','Symptoms / DTC Notes','DTC Codes',\n                      'Work Performed','Advisory Note','Job Groups (JSON)','Saved At','Is Quote','Next Oil Miles','Next Oil Date'];\n\nvar LABOR_FIELD_KEYS = ['id','d','r','addedAt'];\nvar LABOR_COLUMN_LABELS = ['ID','Job Description','Rate ($/hr)','Added At'];\n\nvar PURCHASE_FIELD_KEYS = ['id','date','source','part','amount','customer','vehicle','notes','addedAt'];\nvar PURCHASE_COLUMN_LABELS = ['ID','Date','Invoice # / Vendor','Part / Supplies','Amount ($)','Customer','Vehicle','Notes','Logged At'];\n\nfunction doGet(e) {\n  var type = (e.parameter && e.parameter.type) || 'invoices';\n  if (type === 'laborcodes') {\n    return jsonResponse_(readSheet_(getLaborSheet_(), LABOR_FIELD_KEYS));\n  }\n  if (type === 'purchases') {\n    return jsonResponse_(readSheet_(getPurchaseSheet_(), PURCHASE_FIELD_KEYS));\n  }\n  return jsonResponse_(readSheet_(getSheet_(), FIELD_KEYS));\n}\n\nfunction doPost(e) {\n  var payload = JSON.parse(e.postData.contents);\n  if (payload._type === 'laborcode') {\n    upsertRow_(getLaborSheet_(), LABOR_FIELD_KEYS, payload);\n  } else if (payload._type === 'purchase') {\n    upsertRow_(getPurchaseSheet_(), PURCHASE_FIELD_KEYS, payload);\n  } else {\n    upsertRow_(getSheet_(), FIELD_KEYS, payload);\n  }\n  return jsonResponse_({ ok: true });\n}\n\n// Reads rows by fixed column POSITION (matching FIELD_KEYS), ignoring whatever\n// text is actually in row 1 \u2014 so you can freely rename headers for readability.\nfunction readSheet_(sheet, fieldKeys) {\n  var data = sheet.getDataRange().getValues();\n  if (data.length < 2) return [];\n  return data.slice(1).map(function(row) {\n    var obj = {};\n    fieldKeys.forEach(function(key, i) { obj[key] = row[i]; });\n    return obj;\n  });\n}\n\nfunction appendRow_(sheet, fieldKeys, payload) {\n  var row = fieldKeys.map(function(k) {\n    var v = payload[k];\n    if (v === undefined || v === null) return '';\n    return (typeof v === 'object') ? JSON.stringify(v) : v;\n  });\n  sheet.appendRow(row);\n}\n\n// Like appendRow_, but if a row with the same id already exists, it overwrites\n// that row in place instead of adding a duplicate \u2014 this is what makes editing\n// and re-saving an existing invoice/purchase/labor code actually update it.\nfunction upsertRow_(sheet, fieldKeys, payload) {\n  var row = fieldKeys.map(function(k) {\n    var v = payload[k];\n    if (v === undefined || v === null) return '';\n    return (typeof v === 'object') ? JSON.stringify(v) : v;\n  });\n\n  var idCol = fieldKeys.indexOf('id');\n  var id = payload.id;\n  if (id && idCol > -1) {\n    var data = sheet.getDataRange().getValues();\n    for (var r = 1; r < data.length; r++) {\n      if (String(data[r][idCol]) === String(id)) {\n        sheet.getRange(r + 1, 1, 1, row.length).setValues([row]);\n        return;\n      }\n    }\n  }\n  sheet.appendRow(row);\n}\n\nfunction getSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(COLUMN_LABELS);\n  return sheet;\n}\n\nfunction getLaborSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(LABOR_SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(LABOR_SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(LABOR_COLUMN_LABELS);\n  return sheet;\n}\n\nfunction getPurchaseSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(PURCHASE_SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(PURCHASE_SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(PURCHASE_COLUMN_LABELS);\n  return sheet;\n}\n\nfunction jsonResponse_(obj) {\n  return ContentService.createTextOutput(JSON.stringify(obj))\n    .setMimeType(ContentService.MimeType.JSON);\n}\n\n/**\n * One-time helper: run this manually (select \"relabelHeaders\" in the\n * function dropdown above, then click Run) if you already had data in\n * your sheet before this update, to fix your existing header row text.\n */\nfunction relabelHeaders() {\n  var invSheet = getSheet_();\n  invSheet.getRange(1, 1, 1, COLUMN_LABELS.length).setValues([COLUMN_LABELS]);\n  var laborSheet = getLaborSheet_();\n  laborSheet.getRange(1, 1, 1, LABOR_COLUMN_LABELS.length).setValues([LABOR_COLUMN_LABELS]);\n  var purchaseSheet = getPurchaseSheet_();\n  purchaseSheet.getRange(1, 1, 1, PURCHASE_COLUMN_LABELS.length).setValues([PURCHASE_COLUMN_LABELS]);\n}\n\n/**\n * One-time helper: run this manually (select \"seedLaborCodes\" in the\n * function dropdown above, then click Run) to populate the LaborCodes\n * tab with your original shop price list. Safe to re-run \u2014 it will\n * skip any description that already exists in the sheet.\n */\nvar SEED_LABOR_CODES = [\n  {d:'AIR CONDITION SERVICE', r:165.0},\n  {d:'AIR CONDITION SERVICE FRONT AND REAR', r:176.0},\n  {d:'AIR CONDITION SERVICE RYF 12 OZ', r:250.0},\n  {d:'AIR CONDITION SERVICE RFY 12 TO 24 OZ', r:300.0},\n  {d:'AIR CONDITION SRVICE RFY 24 TO 32 OZ', r:385.0},\n  {d:'Administration Fee', r:151.0},\n  {d:'ALIGNMENT', r:110.0},\n  {d:'ALIGNMENT/ COMPANY', r:135.0},\n  {d:'ALIGNMENT TRUCKS', r:150.0},\n  {d:'ALIGNMENT FOUR WHEEL', r:150.0},\n  {d:'SERVICE REAR BRAKE PADS AND TURN ROTORS', r:198.0},\n  {d:'SERVICE FRONT BRAKE PADS AND TURN ROTORS', r:198.0},\n  {d:'SERVICE FRONT BRAKE PADS AND REPLACE ROTORS', r:150.0},\n  {d:'SERVICE REAR BRAKE PADS AND REPLACE ROTORS', r:150.0},\n  {d:'SERVICE FRONT BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)', r:198.0},\n  {d:'SERVICE REAR BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)', r:198.0},\n  {d:'FRONT BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)', r:150.0},\n  {d:'REAR BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)', r:150.0},\n  {d:'SERVICE REAR BRAKE SHOES', r:110.0},\n  {d:'SERVICE REAR BRAKE SHOES AND TURN DRUM', r:150.0},\n  {d:'FRONT BRAKE PADS SERVCE ONLY', r:99.5},\n  {d:'REAR BRAKE PADS SERVCE ONLY', r:99.5},\n  {d:'FLUSH/BLEED BRAKE SYSTEM', r:99.5},\n  {d:'CHECK OUT SERVICE', r:61.0},\n  {d:'Diagnostics Fee', r:110.0},\n  {d:'Freight', r:0.0},\n  {d:'GAS', r:0.0},\n  {d:'FUEL INJECTION CLEAN', r:110.0},\n  {d:'Intelligence Power Distribution Module', r:0.0},\n  {d:'TOPCARFIXER1', r:99.5},\n  {d:'Standard Labor Rate', r:110.0},\n  {d:'TOPCARFIXER2', r:99.5},\n  {d:'LATE FEE', r:25.0},\n  {d:'OIL CHANGE AND ROTATE OVER \"18\" (BMW/AUDI/JAG)', r:155.0},\n  {d:'OIL CHANGE AND ROTATE UNDER \"18 (BMW/AUDI/JAG)', r:145.0},\n  {d:'OIL CHANGE AND ROTATE OVER \"18\"', r:85.0},\n  {d:'OIL CHANGE AND ROTATE UNDER \"18', r:70.0},\n  {d:'LUBE AND OIL FILTER', r:30.0},\n  {d:'OIL AND FILTER CHANGE /W SKID PLATE OR UNDER COVER', r:36.0},\n  {d:'OIL CHANGE W/ CUSTOMER PARTS', r:29.5},\n  {d:'OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER OVER 18\"', r:94.9},\n  {d:'OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER UNDER 18\"', r:80.4},\n  {d:'MISCELLANIES', r:75.0},\n  {d:'Computer Program', r:100.0},\n  {d:'MOUNT AND BALANCE OVER 18', r:39.0},\n  {d:'mount and balance CAR TIRE UNDER 18', r:34.0},\n  {d:'rotate and balance tires', r:65.0},\n  {d:'MOUNT TIRE ONLY', r:30.0},\n  {d:'ROTATE ONLY UNDER \"18\"', r:41.0},\n  {d:'ROTATE ONLY OVER\"18\"', r:58.0},\n  {d:'ROTATE AND BALANCE OVER\"18\"', r:76.0},\n  {d:'ROTOR TURN', r:21.0},\n  {d:'SHIPPING AND HANDLING', r:0.0},\n  {d:'TIRE DISPOSEL', r:3.0},\n  {d:'TOW OUT OF AREA', r:200.0},\n  {d:'TOW FEE CULP & SON', r:85.0},\n  {d:'TOW AFTER HOURS', r:125.0},\n  {d:'TIRE PLUG', r:25.0},\n  {d:'TIRE PATCH NO BALANCE', r:42.0},\n  {d:'TIRE PATCH W/ BALANCE', r:45.0},\n  {d:'TIRE PRESSURE MONITOR REPROGRAM', r:99.5},\n  {d:'REPLACE A/C COMPRESSOR', r:0},\n  {d:'REPLACE A/C CONDENSOR', r:0},\n  {d:'REPLACE AC RESISTOR', r:0},\n  {d:'REPLACE ALTERNATOR', r:0},\n  {d:'REPLACE BLEND DOOR ACTUATOR', r:0},\n  {d:'REPLACE BLOWER MOTOR', r:0},\n  {d:'REPLACE CABIN AIR FILTER', r:0},\n  {d:'REPLACE COOLANT TEMP SENSOR', r:0},\n  {d:'REPLACE DRIVE BELT', r:0},\n  {d:'REPLACE ENGINE MOTOR MOUNT', r:0},\n  {d:'REPLACE ENGINE TORQUE MOUNT', r:0},\n  {d:'REPLACE FRONT STRUTS SUSPENSION BOTH SIDES', r:0},\n  {d:'REPLACE FRONT STRUTS SUSPENSION ONE SIDES', r:0},\n  {d:'REPLACE HEADLIGHT BULBS', r:0},\n  {d:'REPLACE IGNITION COIL', r:0},\n  {d:'REPLACE MASS AIR FLOW SENSOR', r:0},\n  {d:'REPLACE MASTER BRAKE CYLINDER', r:0},\n  {d:'REPLACE OXYGEN SENSORS', r:0},\n  {d:'REPLACE PURGE VALVES', r:0},\n  {d:'REPLACE RADIATOR/HOSES', r:0},\n  {d:'REPLACE REAR SHOCKS', r:0},\n  {d:'REPLACE SPARK PLUG AND IGNITION COIL', r:0},\n  {d:'REPLACE SWAY BAR BUSHING', r:0},\n  {d:'REPLACE TAILGATE ACTUATOR', r:99.5},\n  {d:'REPLACE THROTTLE BODY', r:0},\n  {d:'REPLACE TIE ROD END', r:0},\n  {d:'REPLACE TRANSMISSION FLUID', r:0},\n  {d:'REPLACE VALVE COVER GASKET', r:0},\n  {d:'REPLACE VAPOR/SOLENOID CANNISTER', r:0},\n  {d:'REPLACE WATER PUMP', r:0},\n  {d:'REPLACE WHEEL BEARING/HUB', r:0},\n  {d:'REPLACE WINDOW MOTOR', r:0},\n  {d:'REPLACE STEERING GEAR', r:0}\n\n];\n\nfunction seedLaborCodes() {\n  var sheet = getLaborSheet_();\n  var existing = readSheet_(sheet, LABOR_FIELD_KEYS);\n  var existingDescs = {};\n  existing.forEach(function(row) {\n    if (row.d) existingDescs[String(row.d).trim().toLowerCase()] = true;\n  });\n  var added = 0;\n  SEED_LABOR_CODES.forEach(function(item) {\n    var key = item.d.trim().toLowerCase();\n    if (!existingDescs[key]) {\n      appendRow_(sheet, LABOR_FIELD_KEYS, {\n        id: Utilities.getUuid(),\n        d: item.d,\n        r: item.r,\n        addedAt: new Date().toISOString()\n      });\n      existingDescs[key] = true;\n      added++;\n    }\n  });\n  Logger.log('Added ' + added + ' labor codes.');\n}\n";
 
 // ---------- PIN lock (keeps out casual/curious people — not real security,
 // since anyone who views this page's source can find the PIN or bypass it) ----------
@@ -1543,15 +1547,21 @@ function openInvoiceDetail(job){
   }
   if(job.work){ html += `<h4>Work Performed</h4><div>${escapeHtml(job.work)}</div>`; }
   if(job.advisory){ html += `<div class="advisory-note"><b>Advisory:</b> ${escapeHtml(job.advisory)}</div>`; }
+  if(job.nextOilMiles || job.nextOilDate){
+    const bits = [job.nextOilMiles, job.nextOilDate ? fmtDate(job.nextOilDate) : ''].filter(Boolean).join(' or ');
+    html += `<div class="advisory-note" style="background:#EAF1F7;color:#2C5A7A;"><b>Next Oil Service Due:</b> ${escapeHtml(bits)}</div>`;
+  }
 
   if(job.groups && job.groups.length){
     html += `<h4>Jobs</h4>`;
     job.groups.forEach((g,i)=>{
-      const laborTotal = (Number(g.labor.hours)||0)*(Number(g.labor.rate)||0);
+      const laborLines = normalizeLabor(g.labor);
+      const laborTotal = laborLines.reduce((s,l)=> s + (Number(l.hours)||0)*(Number(l.rate)||0), 0);
+      const laborList = laborLines.filter(l=>l.desc).map(l=>escapeHtml(l.desc)).join(', ') || '—';
       const partsTotal = (g.parts||[]).reduce((s,r)=>{ const sell=(Number(r.cost)||0)+(Number(r.markup)||0); return s+sell*(Number(r.qty)||0); },0);
       const partsList = (g.parts||[]).map(r=>`${escapeHtml(r.desc||'part')} x${r.qty||1}`).join(', ');
       html += `<div class="mjob"><b>${escapeHtml(g.name || ('Job '+(i+1)))}</b><br>
-        Labor: ${escapeHtml(g.labor.desc||'—')} — ${fmt$(laborTotal)}<br>
+        Labor: ${laborList} — ${fmt$(laborTotal)}<br>
         ${partsList ? ('Parts: ' + partsList + ' — ' + fmt$(partsTotal)) : 'No parts'}</div>`;
     });
   }
@@ -1607,11 +1617,13 @@ function loadJobIntoEditor(job){
   document.getElementById('fWork').value = job.work || '';
   document.getElementById('fAdvisory').value = job.advisory || '';
   document.getElementById('fDate').value = job.d || '';
+  document.getElementById('fNextOilMiles').value = job.nextOilMiles || '';
+  document.getElementById('fNextOilDate').value = job.nextOilDate || '';
 
   (job.groups||[]).forEach(g=>{
     addJobGroup({
       name: g.name || '',
-      labor: Object.assign({desc:'',hours:0,rate:110}, g.labor),
+      labor: g.labor,
       parts: (g.parts||[]).map(p=>Object.assign({id:'p'+(liId++)}, p))
     });
   });
@@ -1682,9 +1694,20 @@ document.querySelectorAll('nav.tabs button').forEach(btn=>{
 });
 
 // ---------- Invoice builder (grouped jobs) ----------
+function normalizeLabor(labor){
+  // supports old saved data where labor was a single {desc,hours,rate} object,
+  // and new data where it's an array of labor lines
+  if(Array.isArray(labor)) return labor.map(l => Object.assign({id: l.id || ('l'+(liId++))}, l));
+  if(labor && typeof labor === 'object') return [Object.assign({id: 'l'+(liId++)}, labor)];
+  return [];
+}
+
 function addJobGroup(vals){
   const id = 'g' + (liId++);
-  jobGroups.push(Object.assign({id, name:'', labor:{desc:'',hours:0,rate:110}, parts:[]}, vals||{}));
+  const base = {id, name:'', labor:[{id:'l'+(liId++), desc:'', hours:0, rate:110}], parts:[]};
+  const merged = Object.assign({}, base, vals||{});
+  merged.labor = normalizeLabor(vals && vals.labor !== undefined ? vals.labor : base.labor);
+  jobGroups.push(merged);
   renderJobGroups();
 }
 function addPartToGroup(groupId){
@@ -1693,9 +1716,15 @@ function addPartToGroup(groupId){
   g.parts.push({id:'p'+(liId++), desc:'', partNo:'', qty:1, cost:0, markup:0});
   renderJobGroups();
 }
+function addLaborToGroup(groupId){
+  const g = jobGroups.find(x=>x.id===groupId);
+  if(!g) return;
+  g.labor.push({id:'l'+(liId++), desc:'', hours:0, rate:110});
+  renderJobGroups();
+}
 
 function jobGroupSubtotal(g){
-  const laborTotal = (Number(g.labor.hours)||0)*(Number(g.labor.rate)||0);
+  const laborTotal = g.labor.reduce((s,l)=> s + (Number(l.hours)||0)*(Number(l.rate)||0), 0);
   const partsTotal = g.parts.reduce((s,r)=>{
     const sell=(Number(r.cost)||0)+(Number(r.markup)||0);
     return s + sell*(Number(r.qty)||0);
@@ -1708,7 +1737,17 @@ function renderJobGroups(){
   document.getElementById('jobsEmpty').style.display = jobGroups.length ? 'none':'block';
 
   container.innerHTML = jobGroups.map((g, idx)=>{
-    const laborTotal = (Number(g.labor.hours)||0)*(Number(g.labor.rate)||0);
+    const laborRowsHtml = g.labor.map(l=>{
+      const total = (Number(l.hours)||0) * (Number(l.rate)||0);
+      return `<tr data-lid="${l.id}">
+        <td><input class="li-desc job-labor-desc" list="laborCodesOptions" value="${escapeHtml(l.desc)}" placeholder="Start typing a service…" autocomplete="off"></td>
+        <td><input class="job-labor-hours" type="number" step="0.1" value="${l.hours}"></td>
+        <td><input class="job-labor-rate" type="number" step="0.01" value="${l.rate}"></td>
+        <td class="li-total job-labor-total">${fmt$(total)}</td>
+        <td><button class="li-remove" title="Remove labor line">✕</button></td>
+      </tr>`;
+    }).join('');
+
     const partsRowsHtml = g.parts.map(r=>{
       const sell = (Number(r.cost)||0)+(Number(r.markup)||0);
       const total = sell*(Number(r.qty)||0);
@@ -1729,16 +1768,11 @@ function renderJobGroups(){
         <input class="job-name" value="${escapeHtml(g.name)}" placeholder="Job name — e.g. Front Brakes">
         <button class="job-remove">✕ Remove Job</button>
       </div>
-      <table class="line-table">
+      <table class="line-table job-labor-table">
         <thead><tr><th style="width:46%">Labor Description</th><th style="width:16%">Hours</th><th style="width:16%">Rate / hr</th><th style="width:16%">Total</th><th></th></tr></thead>
-        <tbody><tr>
-          <td><input class="li-desc job-labor-desc" list="laborCodesOptions" value="${escapeHtml(g.labor.desc)}" placeholder="Start typing a service…" autocomplete="off"></td>
-          <td><input class="job-labor-hours" type="number" step="0.1" value="${g.labor.hours}"></td>
-          <td><input class="job-labor-rate" type="number" step="0.01" value="${g.labor.rate}"></td>
-          <td class="li-total job-labor-total">${fmt$(laborTotal)}</td>
-          <td></td>
-        </tr></tbody>
+        <tbody>${laborRowsHtml}</tbody>
       </table>
+      <button class="btn btn-ghost btn-sm add-labor-to-job">+ Add Labor Line</button>
       <div class="job-sub-label">Parts for this job</div>
       <table class="line-table job-parts-table">
         <thead><tr><th style="width:26%">Description</th><th style="width:14%">Part #</th><th style="width:8%">Qty</th><th style="width:14%">Unit Cost</th><th style="width:14%">Markup ($, auto)</th><th style="width:14%">Total</th><th></th></tr></thead>
@@ -1757,6 +1791,7 @@ function renderJobGroups(){
     const g = jobGroups.find(x=>x.id===gid);
 
     const subtotalLabel = card.querySelector('.job-subtotal');
+    const subtotalEl = card.querySelector('.job-subtotal b');
     card.querySelector('.job-name').addEventListener('input', e=>{
       g.name = e.target.value;
       subtotalLabel.firstChild.textContent = (g.name || ('Job ' + (idx+1))) + ' Subtotal: ';
@@ -1765,27 +1800,33 @@ function renderJobGroups(){
       jobGroups = jobGroups.filter(x=>x.id!==gid); renderJobGroups(); calcTotals();
     });
 
-    const descInput = card.querySelector('.job-labor-desc');
-    const rateInput = card.querySelector('.job-labor-rate');
-    const hoursInput = card.querySelector('.job-labor-hours');
-    const laborTotalCell = card.querySelector('.job-labor-total');
-    const subtotalEl = card.querySelector('.job-subtotal b');
-
-    function refreshGroupLabor(){
-      const total = (Number(g.labor.hours)||0)*(Number(g.labor.rate)||0);
-      laborTotalCell.textContent = fmt$(total);
-      subtotalEl.textContent = fmt$(jobGroupSubtotal(g));
-    }
-    descInput.addEventListener('input', e=>{
-      g.labor.desc = e.target.value;
-      const match = LABOR_LOOKUP[e.target.value.trim().toLowerCase()];
-      if(match !== undefined){ g.labor.rate = match; rateInput.value = match; }
-      refreshGroupLabor(); calcTotals();
-    });
-    rateInput.addEventListener('input', e=>{ g.labor.rate=e.target.value; refreshGroupLabor(); calcTotals(); });
-    hoursInput.addEventListener('input', e=>{ g.labor.hours=e.target.value; refreshGroupLabor(); calcTotals(); });
-
+    card.querySelector('.add-labor-to-job').addEventListener('click', ()=>{ addLaborToGroup(gid); calcTotals(); });
     card.querySelector('.add-part-to-job').addEventListener('click', ()=>{ addPartToGroup(gid); calcTotals(); });
+
+    card.querySelectorAll('.job-labor-table tbody tr').forEach(tr=>{
+      const lid = tr.dataset.lid;
+      const line = g.labor.find(l=>l.id===lid);
+      const descInput = tr.querySelector('.job-labor-desc');
+      const rateInput = tr.querySelector('.job-labor-rate');
+      const hoursInput = tr.querySelector('.job-labor-hours');
+      const laborTotalCell = tr.querySelector('.job-labor-total');
+      function refreshLaborLine(){
+        const total = (Number(line.hours)||0)*(Number(line.rate)||0);
+        laborTotalCell.textContent = fmt$(total);
+        subtotalEl.textContent = fmt$(jobGroupSubtotal(g));
+      }
+      descInput.addEventListener('input', e=>{
+        line.desc = e.target.value;
+        const match = LABOR_LOOKUP[e.target.value.trim().toLowerCase()];
+        if(match !== undefined){ line.rate = match; rateInput.value = match; }
+        refreshLaborLine(); calcTotals();
+      });
+      rateInput.addEventListener('input', e=>{ line.rate=e.target.value; refreshLaborLine(); calcTotals(); });
+      hoursInput.addEventListener('input', e=>{ line.hours=e.target.value; refreshLaborLine(); calcTotals(); });
+      tr.querySelector('.li-remove').addEventListener('click', ()=>{
+        g.labor = g.labor.filter(l=>l.id!==lid); renderJobGroups(); calcTotals();
+      });
+    });
 
     card.querySelectorAll('.job-parts-table tbody tr').forEach(tr=>{
       const pid = tr.dataset.pid;
@@ -1821,7 +1862,7 @@ function calcShopSupplies(partsTotal){
 }
 
 function calcTotals(){
-  const laborTotal = jobGroups.reduce((s,g)=> s + (Number(g.labor.hours)||0)*(Number(g.labor.rate)||0), 0);
+  const laborTotal = jobGroups.reduce((s,g)=> s + g.labor.reduce((s2,l)=> s2 + (Number(l.hours)||0)*(Number(l.rate)||0), 0), 0);
   const partsTotal = jobGroups.reduce((s,g)=> s + g.parts.reduce((s2,r)=>{
     const sell = (Number(r.cost)||0)+(Number(r.markup)||0);
     return s2 + sell*(Number(r.qty)||0);
@@ -1867,15 +1908,21 @@ function getIntakeFields(){
     dtc: dtcCodes.slice(),
     work: document.getElementById('fWork').value.trim(),
     advisory: document.getElementById('fAdvisory').value.trim(),
+    nextOilMiles: document.getElementById('fNextOilMiles').value.trim(),
+    nextOilDate: document.getElementById('fNextOilDate').value,
     date: document.getElementById('fDate').value || new Date().toISOString().slice(0,10)
   };
 }
 
 function buildJobGroupsPrintHtml(groups){
-  return (groups||[]).filter(g => g.name || (g.labor && g.labor.desc) || (g.parts && g.parts.length)).map((g, idx)=>{
-    const laborTotal = (Number(g.labor.hours)||0)*(Number(g.labor.rate)||0);
+  return (groups||[]).map(g => Object.assign({}, g, {labor: normalizeLabor(g.labor)}))
+    .filter(g => g.name || g.labor.some(l=>l.desc) || (g.parts && g.parts.length)).map((g, idx)=>{
+    const laborTotal = g.labor.reduce((s,l)=> s + (Number(l.hours)||0)*(Number(l.rate)||0), 0);
     const partsTotal = (g.parts||[]).reduce((s,r)=>{ const sell=(Number(r.cost)||0)+(Number(r.markup)||0); return s+sell*(Number(r.qty)||0); },0);
     const subtotal = laborTotal + partsTotal;
+    const laborRowsHtml = g.labor.filter(l=>l.desc||l.hours).map(l=>
+      `<tr><td>${escapeHtml(l.desc||'—')}</td><td class="c">${Number(l.hours)||0}</td><td class="r">${fmt$(l.rate)}</td><td class="r">${fmt$((Number(l.hours)||0)*(Number(l.rate)||0))}</td></tr>`
+    ).join('');
     const partsRowsHtml = (g.parts||[]).filter(r=>r.desc||r.cost).map(r=>{
       const sell = (Number(r.cost)||0)+(Number(r.markup)||0);
       const total = sell*(Number(r.qty)||0);
@@ -1883,7 +1930,7 @@ function buildJobGroupsPrintHtml(groups){
     }).join('');
     return `<div class="job-block">
       <h4>Job ${idx+1}${g.name?(': '+escapeHtml(g.name)):''}</h4>
-      ${(g.labor.desc || g.labor.hours) ? `<table><thead><tr><th>Labor</th><th>Hrs</th><th style="text-align:right">Rate</th><th style="text-align:right">Total</th></tr></thead><tbody><tr><td>${escapeHtml(g.labor.desc||'—')}</td><td class="c">${Number(g.labor.hours)||0}</td><td class="r">${fmt$(g.labor.rate)}</td><td class="r">${fmt$(laborTotal)}</td></tr></tbody></table>` : ''}
+      ${laborRowsHtml ? `<table><thead><tr><th>Labor</th><th>Hrs</th><th style="text-align:right">Rate</th><th style="text-align:right">Total</th></tr></thead><tbody>${laborRowsHtml}</tbody></table>` : ''}
       ${partsRowsHtml ? `<table><thead><tr><th>Parts</th><th>Qty</th><th style="text-align:right">Price</th><th style="text-align:right">Total</th></tr></thead><tbody>${partsRowsHtml}</tbody></table>` : ''}
       <div class="job-subtotal-line">${escapeHtml(g.name || ('Job ' + (idx+1)))} Subtotal: ${fmt$(subtotal)}</div>
     </div>`;
@@ -1912,6 +1959,8 @@ function openInvoicePrintWindow(data){
     .issue-block strong{font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:10.5px;letter-spacing:.05em;color:#5B6472;display:block;margin-bottom:2px;}
     .issue-block.advisory{background:#FCEFD8;color:#7a4f00;padding:9px 11px;border-radius:4px;}
     .issue-block.advisory strong{color:#7a4f00;}
+    .issue-block.oil-due{background:#EAF1F7;color:#2C5A7A;padding:9px 11px;border-radius:4px;}
+    .issue-block.oil-due strong{color:#2C5A7A;}
     .info div span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#5B6472;font-weight:600;margin-bottom:3px;}
     h4{font-family:'Oswald',sans-serif;text-transform:uppercase;font-size:13px;letter-spacing:.06em;color:#212B38;margin:18px 0 8px;}
     table{width:100%;border-collapse:collapse;font-size:13px;margin-bottom:4px;}
@@ -1945,6 +1994,7 @@ function openInvoicePrintWindow(data){
     ${(data.symptoms||(data.dtc&&data.dtc.length)) ? `<div class="issue-block"><strong>Symptoms / DTC</strong>${escapeHtml(data.symptoms||'—')}${(data.dtc&&data.dtc.length)?(' &nbsp;·&nbsp; DTC: '+data.dtc.map(escapeHtml).join(', ')):''}</div>` : ''}
     ${data.work ? `<div class="issue-block"><strong>Work Performed</strong>${escapeHtml(data.work)}</div>` : ''}
     ${data.advisory ? `<div class="issue-block advisory"><strong>Advisory Note</strong>${escapeHtml(data.advisory)}</div>` : ''}
+    ${(data.nextOilMiles||data.nextOilDate) ? `<div class="issue-block oil-due"><strong>Next Oil Service Due</strong>${[data.nextOilMiles?escapeHtml(data.nextOilMiles):'', data.nextOilDate?fmtDate(data.nextOilDate):''].filter(Boolean).join(' or ')}${(data.nextOilMiles&&data.nextOilDate)?', whichever comes first':''}</div>` : ''}
     ${data.groupsHtml||''}
     <div class="totals">
       <div class="row"><span>Labor</span><span>${fmt$(data.laborTotal)}</span></div>
@@ -1966,6 +2016,7 @@ function printStoredInvoice(job){
     phone: job.phone, email: job.email, engine: job.engine, color: job.color, vin: job.vin,
     milesIn: job.milesIn, milesOut: job.milesOut, plate: job.plate,
     symptoms: job.symptoms, dtc: job.dtc, work: job.work, advisory: job.advisory,
+    nextOilMiles: job.nextOilMiles, nextOilDate: job.nextOilDate,
     groupsHtml: buildJobGroupsPrintHtml(job.groups),
     laborTotal: job.l, partsTotal: job.p, supplies: 0, tax: job.tx, grand: job.t,
     isQuote: !!job.isQuote
@@ -1983,6 +2034,7 @@ document.getElementById('printBtn').addEventListener('click', ()=>{
     phone: f.phone, email: f.email, engine: f.engine, color: f.color, vin: f.vin,
     milesIn: f.milesIn, milesOut: f.milesOut, plate: f.plate,
     symptoms: f.symptoms, dtc: f.dtc, work: f.work, advisory: f.advisory,
+    nextOilMiles: f.nextOilMiles, nextOilDate: f.nextOilDate,
     groupsHtml: buildJobGroupsPrintHtml(jobGroups),
     laborTotal: totals.laborTotal, partsTotal: totals.partsTotal, supplies,
     taxRate, tax: totals.tax, grand: totals.grand,
@@ -1996,7 +2048,7 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   currentEditingId = null;
   docType = 'invoice';
   hideEditingBanner();
-  ['fCustomer','fPhone','fEmail','fYear','fMake','fModel','fEngine','fColor','fVin','fMilesIn','fMilesOut','fPlate','fSymptoms','fDtcInput','fWork','fAdvisory'].forEach(id=>{
+  ['fCustomer','fPhone','fEmail','fYear','fMake','fModel','fEngine','fColor','fVin','fMilesIn','fMilesOut','fPlate','fSymptoms','fDtcInput','fWork','fAdvisory','fNextOilMiles','fNextOilDate'].forEach(id=>{
     document.getElementById(id).value='';
   });
   document.getElementById('fDate').value='';
@@ -2022,6 +2074,7 @@ document.getElementById('saveBtn').addEventListener('click', async ()=>{
     phone: f.phone, email: f.email, engine: f.engine, color: f.color, vin: f.vin,
     milesIn: f.milesIn, milesOut: f.milesOut, plate: f.plate,
     symptoms: f.symptoms, dtc: f.dtc, work: f.work, advisory: f.advisory,
+    nextOilMiles: f.nextOilMiles, nextOilDate: f.nextOilDate,
     groups: jobGroups.map(g=>({name:g.name, labor:g.labor, parts:g.parts})),
     savedAt: new Date().toISOString()
   };
