@@ -176,6 +176,10 @@ td.num{font-family:'IBM Plex Mono';text-align:right;white-space:nowrap;}
 .line-table th{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);text-align:left;padding:4px 6px;font-weight:600;}
 .line-table td{padding:4px 6px;}
 .line-table input{width:100%;padding:6px 7px;border:1px solid var(--line);border-radius:3px;font-size:13px;background:#fbfaf7;}
+.markup-inputs{display:flex;align-items:center;gap:3px;}
+.markup-inputs .li-markup-pct{width:44px;flex:0 0 44px;padding:6px 4px;text-align:right;}
+.markup-pct-sign{font-size:11px;color:var(--ink-soft);flex-shrink:0;}
+.markup-inputs .li-markup{flex:1;min-width:0;}
 .line-table .li-total{font-family:'IBM Plex Mono';font-size:13px;text-align:right;white-space:nowrap;padding-right:4px;}
 .li-remove{background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px;}
 .li-remove:hover{background:#FBE7E3;border-radius:3px;}
@@ -1751,12 +1755,19 @@ function renderJobGroups(){
     const partsRowsHtml = g.parts.map(r=>{
       const sell = (Number(r.cost)||0)+(Number(r.markup)||0);
       const total = sell*(Number(r.qty)||0);
+      const pct = (Number(r.cost)||0) > 0 ? ((Number(r.markup)||0) / Number(r.cost) * 100) : 0;
       return `<tr data-pid="${r.id}">
         <td><input class="li-desc" value="${escapeHtml(r.desc)}" placeholder="e.g. Brake pads"></td>
         <td><input class="li-partno" value="${escapeHtml(r.partNo)}" placeholder="#"></td>
         <td><input class="li-qty" type="number" step="1" value="${r.qty}"></td>
         <td><input class="li-cost" type="number" step="0.01" value="${r.cost}"></td>
-        <td><input class="li-markup" type="number" step="0.01" value="${r.markup}"></td>
+        <td>
+          <div class="markup-inputs">
+            <input class="li-markup-pct" type="number" step="0.1" value="${pct.toFixed(1)}" title="Markup %">
+            <span class="markup-pct-sign">%</span>
+            <input class="li-markup" type="number" step="0.01" value="${r.markup}" title="Markup $">
+          </div>
+        </td>
         <td class="li-total">${fmt$(total)}</td>
         <td><button class="li-remove" title="Remove part">✕</button></td>
       </tr>`;
@@ -1775,7 +1786,7 @@ function renderJobGroups(){
       <button class="btn btn-ghost btn-sm add-labor-to-job">+ Add Labor Line</button>
       <div class="job-sub-label">Parts for this job</div>
       <table class="line-table job-parts-table">
-        <thead><tr><th style="width:26%">Description</th><th style="width:14%">Part #</th><th style="width:8%">Qty</th><th style="width:14%">Unit Cost</th><th style="width:14%">Markup ($, auto)</th><th style="width:14%">Total</th><th></th></tr></thead>
+        <thead><tr><th style="width:24%">Description</th><th style="width:12%">Part #</th><th style="width:7%">Qty</th><th style="width:13%">Unit Cost</th><th style="width:20%">Markup</th><th style="width:14%">Total</th><th></th></tr></thead>
         <tbody>${partsRowsHtml}</tbody>
       </table>
       <div class="job-parts-foot">
@@ -1832,6 +1843,7 @@ function renderJobGroups(){
       const pid = tr.dataset.pid;
       const row = g.parts.find(r=>r.id===pid);
       const markupInput = tr.querySelector('.li-markup');
+      const markupPctInput = tr.querySelector('.li-markup-pct');
       function refreshPartLine(){
         const sell=(Number(row.cost)||0)+(Number(row.markup)||0);
         tr.querySelector('.li-total').textContent = fmt$(sell*(Number(row.qty)||0));
@@ -1845,10 +1857,24 @@ function renderJobGroups(){
         const autoMarkup = Number((Number(row.cost)||0) * rate).toFixed(2);
         row.markup = autoMarkup;
         markupInput.value = autoMarkup;
+        markupPctInput.value = (rate * 100).toFixed(1);
         refreshPartLine(); calcTotals();
       });
       tr.querySelector('.li-qty').addEventListener('input', e=>{ row.qty=e.target.value; refreshPartLine(); calcTotals(); });
-      markupInput.addEventListener('input', e=>{ row.markup=e.target.value; refreshPartLine(); calcTotals(); });
+      markupInput.addEventListener('input', e=>{
+        row.markup = e.target.value;
+        const cost = Number(row.cost)||0;
+        markupPctInput.value = cost > 0 ? ((Number(row.markup)||0) / cost * 100).toFixed(1) : '0.0';
+        refreshPartLine(); calcTotals();
+      });
+      markupPctInput.addEventListener('input', e=>{
+        const pct = Number(e.target.value)||0;
+        const cost = Number(row.cost)||0;
+        const newMarkup = Number((cost * pct / 100).toFixed(2));
+        row.markup = newMarkup;
+        markupInput.value = newMarkup;
+        refreshPartLine(); calcTotals();
+      });
       tr.querySelector('.li-remove').addEventListener('click', ()=>{
         g.parts = g.parts.filter(r=>r.id!==pid); renderJobGroups(); calcTotals();
       });
