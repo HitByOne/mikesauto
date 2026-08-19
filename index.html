@@ -550,7 +550,7 @@ body.locked .pin-lock-overlay{display:flex;}
       <div class="lines-section" style="border-bottom:1px solid var(--line);">
         <div class="form-grid" style="padding:0;grid-template-columns:repeat(3,1fr);">
           <div class="field"><label>Shop Supplies Fee (auto: 5.2% of parts, capped $22.50)</label><input id="fSupplies" type="number" step="0.01" value="0" readonly style="background:#F1EFE8;color:var(--ink-soft);"></div>
-          <div class="field"><label>Tax Rate — Labor, Parts &amp; Supplies (%)</label><input id="fTaxRate" type="number" step="0.01" value="9.75"></div>
+          <div class="field"><label>Tax Rate — Parts &amp; Supplies (%)</label><input id="fTaxRate" type="number" step="0.01" value="9.75"></div>
         </div>
       </div>
 
@@ -1897,7 +1897,7 @@ function calcTotals(){
   const supplies = calcShopSupplies(partsTotal);
   document.getElementById('fSupplies').value = supplies;
   const taxRate = Number(document.getElementById('fTaxRate').value)||0;
-  const tax = (laborTotal + partsTotal + supplies) * (taxRate/100);
+  const tax = (partsTotal + supplies) * (taxRate/100);
   const grand = laborTotal + partsTotal + supplies + tax;
   const profit = laborTotal + (partsTotal - partsCostTotal) + supplies;
 
