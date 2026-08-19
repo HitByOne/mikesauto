@@ -532,8 +532,10 @@ body.locked .pin-lock-overlay{display:flex;}
         <h4>Jobs on this Vehicle <button class="btn btn-ghost btn-sm" id="addJobGroup">+ Add Job</button></h4>
         <div id="jobGroupsContainer"></div>
         <datalist id="laborCodesOptions"></datalist>
+        <datalist id="vendorOptions"></datalist>
         <div class="empty-note" id="jobsEmpty">No jobs yet — add one above (e.g. "Front Brakes", "Rear Brakes").</div>
         <div class="empty-note" style="padding-top:0;">Each job gets its own labor line and parts — they'll print grouped together, like separate repair jobs on the same vehicle.</div>
+        <div class="empty-note" style="padding-top:0;">Parts with a cost and vendor filled in are automatically logged to your Parts Purchases tracker when you save a new invoice (not on edits/re-saves).</div>
         <div class="pricelist-box">
           <button type="button" class="pricelist-toggle" id="pricelistToggle">+ New job not on your price list? Add it here</button>
           <div class="pricelist-form" id="pricelistForm" style="display:none;">
@@ -999,6 +1001,40 @@ async function pushPurchaseToSheet(p){
   }catch(e){ console.warn('push purchase failed', e); return false; }
 }
 
+async function logPartsAsPurchases(job){
+  const allParts = [];
+  (job.groups||[]).forEach(g=>{
+    (g.parts||[]).forEach(part=>{
+      if(part.desc && Number(part.cost) > 0){
+        allParts.push(Object.assign({}, part, { jobName: g.name || '' }));
+      }
+    });
+  });
+  if(!allParts.length) return;
+
+  for(const part of allParts){
+    const p = {
+      id: (crypto.randomUUID ? crypto.randomUUID() : ('pu-' + Date.now() + '-' + Math.random().toString(36).slice(2))),
+      date: job.d || new Date().toISOString().slice(0,10),
+      source: part.vendor || '',
+      part: part.desc + (part.jobName ? (' (' + part.jobName + ')') : ''),
+      amount: Number(((Number(part.cost)||0) * (Number(part.qty)||1)).toFixed(2)),
+      customer: job.c || '',
+      vehicle: job.v || '',
+      notes: 'Auto-logged from invoice: ' + (job.job || ''),
+      addedAt: new Date().toISOString()
+    };
+    try{
+      if(typeof appStorage !== 'undefined'){
+        await appStorage.set('purchase:' + p.id, JSON.stringify(p), false);
+      }
+      purchases.push(p);
+    }catch(e){ console.error('auto-log purchase failed', e); continue; }
+    if(sheetUrl){ await pushPurchaseToSheet(p); }
+  }
+  renderPurchases();
+}
+
 let purchaseSortKey = 'date', purchaseSortDir = -1;
 
 function renderPurchases(){
@@ -1023,6 +1059,16 @@ function renderPurchases(){
     <td>${escapeHtml(p.vehicle||'—')}</td>
     <td class="num">${fmt$(p.amount)}</td>
   </tr>`).join('') || '<tr><td colspan="6" style="padding:16px;color:var(--ink-soft);">No purchases logged yet.</td></tr>';
+
+  refreshVendorOptions();
+}
+
+function refreshVendorOptions(){
+  const el = document.getElementById('vendorOptions');
+  if(!el) return;
+  const vendors = new Set();
+  purchases.forEach(p=>{ if(p.source) vendors.add(p.source.trim()); });
+  el.innerHTML = Array.from(vendors).sort().map(v=>`<option value="${escapeHtml(v)}">`).join('');
 }
 
 document.querySelectorAll('th[data-pkey]').forEach(th=>{
@@ -1563,7 +1609,7 @@ function openInvoiceDetail(job){
       const laborTotal = laborLines.reduce((s,l)=> s + (Number(l.hours)||0)*(Number(l.rate)||0), 0);
       const laborList = laborLines.filter(l=>l.desc).map(l=>escapeHtml(l.desc)).join(', ') || '—';
       const partsTotal = (g.parts||[]).reduce((s,r)=>{ const sell=(Number(r.cost)||0)+(Number(r.markup)||0); return s+sell*(Number(r.qty)||0); },0);
-      const partsList = (g.parts||[]).map(r=>`${escapeHtml(r.desc||'part')} x${r.qty||1}`).join(', ');
+      const partsList = (g.parts||[]).map(r=>`${escapeHtml(r.desc||'part')} x${r.qty||1}${r.vendor?(' ['+escapeHtml(r.vendor)+']'):''}`).join(', ');
       html += `<div class="mjob"><b>${escapeHtml(g.name || ('Job '+(i+1)))}</b><br>
         Labor: ${laborList} — ${fmt$(laborTotal)}<br>
         ${partsList ? ('Parts: ' + partsList + ' — ' + fmt$(partsTotal)) : 'No parts'}</div>`;
@@ -1717,7 +1763,7 @@ function addJobGroup(vals){
 function addPartToGroup(groupId){
   const g = jobGroups.find(x=>x.id===groupId);
   if(!g) return;
-  g.parts.push({id:'p'+(liId++), desc:'', partNo:'', qty:1, cost:0, markup:0});
+  g.parts.push({id:'p'+(liId++), desc:'', partNo:'', qty:1, cost:0, markup:0, vendor:''});
   renderJobGroups();
 }
 function addLaborToGroup(groupId){
@@ -1759,6 +1805,7 @@ function renderJobGroups(){
       return `<tr data-pid="${r.id}">
         <td><input class="li-desc" value="${escapeHtml(r.desc)}" placeholder="e.g. Brake pads"></td>
         <td><input class="li-partno" value="${escapeHtml(r.partNo)}" placeholder="#"></td>
+        <td><input class="li-vendor" value="${escapeHtml(r.vendor||'')}" placeholder="e.g. O'Reilly" list="vendorOptions"></td>
         <td><input class="li-qty" type="number" step="1" value="${r.qty}"></td>
         <td><input class="li-cost" type="number" step="0.01" value="${r.cost}"></td>
         <td>
@@ -1786,7 +1833,7 @@ function renderJobGroups(){
       <button class="btn btn-ghost btn-sm add-labor-to-job">+ Add Labor Line</button>
       <div class="job-sub-label">Parts for this job</div>
       <table class="line-table job-parts-table">
-        <thead><tr><th style="width:24%">Description</th><th style="width:12%">Part #</th><th style="width:7%">Qty</th><th style="width:13%">Unit Cost</th><th style="width:20%">Markup</th><th style="width:14%">Total</th><th></th></tr></thead>
+        <thead><tr><th style="width:19%">Description</th><th style="width:9%">Part #</th><th style="width:13%">Vendor</th><th style="width:6%">Qty</th><th style="width:12%">Unit Cost</th><th style="width:19%">Markup</th><th style="width:12%">Total</th><th></th></tr></thead>
         <tbody>${partsRowsHtml}</tbody>
       </table>
       <div class="job-parts-foot">
@@ -1851,6 +1898,7 @@ function renderJobGroups(){
       }
       tr.querySelector('.li-desc').addEventListener('input', e=>{row.desc=e.target.value;});
       tr.querySelector('.li-partno').addEventListener('input', e=>{row.partNo=e.target.value;});
+      tr.querySelector('.li-vendor').addEventListener('input', e=>{row.vendor=e.target.value;});
       tr.querySelector('.li-cost').addEventListener('input', e=>{
         row.cost = e.target.value;
         const rate = markupRateForCost(row.cost);
@@ -2121,6 +2169,7 @@ document.getElementById('saveBtn').addEventListener('click', async ()=>{
     if(idx >= 0){ customInvoices[idx] = job; } else { customInvoices.push(job); }
     rebuildAllJobs();
     renderDashboard();
+    if(!isUpdate && !isQuote){ await logPartsAsPurchases(job); }
     const flash = document.getElementById('savedFlash');
     const label = isQuote ? 'Quote' : 'Invoice';
     const verb = isUpdate ? 'updated' : 'saved';
