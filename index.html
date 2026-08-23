@@ -398,9 +398,11 @@ body.locked .pin-lock-overlay{display:flex;}
         <button class="btn btn-ghost btn-sm" id="downloadBackupBtn">Download Backup (JSON)</button>
         <button class="btn btn-ghost btn-sm" id="restoreBackupBtn">Restore Backup</button>
         <button class="btn btn-amber btn-sm" id="importHistoricalBtn">Import 189 Historical Jobs to Sheet</button>
+        <button class="btn btn-amber btn-sm" id="findDuplicatesBtn">Find Duplicate Invoices</button>
         <input type="file" id="restoreFileInput" accept="application/json" style="display:none;">
         <span id="backupStatus" class="mono" style="font-size:11.5px;color:var(--green);"></span>
       </div>
+      <div id="duplicatesReport" style="display:none;padding:0 18px 18px;"></div>
     </div>
 
     <div class="panel">
@@ -778,7 +780,7 @@ async function loadCustomInvoices(){
       const list = await appStorage.list('invoice:', false);
       if(list && list.keys && list.keys.length){
         const results = await Promise.all(list.keys.map(k => appStorage.get(k, false).catch(()=>null)));
-        customInvoices = results.filter(Boolean).map(r => JSON.parse(r.value));
+        customInvoices = results.filter(Boolean).map(r => ensureStableId(JSON.parse(r.value)));
       }
     }
   }catch(e){ console.warn('storage load failed', e); }
@@ -828,6 +830,24 @@ async function saveSheetUrl(url){
   }catch(e){ console.warn('could not persist sheet URL', e); }
 }
 
+function simpleHash(str){
+  let h = 0;
+  for(let i=0; i<str.length; i++){
+    h = ((h << 5) - h + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h).toString(36);
+}
+
+function ensureStableId(job){
+  if(!job.id){
+    // Older records saved before ID tracking existed — give them a stable,
+    // content-based ID so repeated syncs recognize them as the same record
+    // instead of treating them as new every time (which caused duplicates).
+    job.id = 'legacy-' + simpleHash([job.job, job.c, job.v, job.d, job.t].join('|'));
+  }
+  return job;
+}
+
 function parseSheetRow(row){
   const job = Object.assign({}, row);
   ['dtc','groups'].forEach(k=>{
@@ -837,16 +857,16 @@ function parseSheetRow(row){
   });
   ['l','p','pc','tx','pr','t'].forEach(k=>{ job[k] = Number(job[k])||0; });
   job.custom = true;
-  return job;
+  return ensureStableId(job);
 }
 
 function mergeById(localArr, remoteArr){
   // Sheet data wins for any id it has (it may reflect edits made elsewhere);
   // local-only ids (not yet pushed) are preserved rather than wiped out.
-  // Items with no id (older saves from before id tracking) are always kept.
+  // Items with no id get a stable content-based id so they merge consistently
+  // instead of duplicating on every sync.
   const byId = new Map();
-  let fallbackN = 0;
-  const keyOf = item => item.id || ('__nokey_' + (fallbackN++));
+  const keyOf = item => ensureStableId(item).id;
   localArr.forEach(item=>{ if(item) byId.set(keyOf(item), item); });
   remoteArr.forEach(item=>{ if(item) byId.set(keyOf(item), item); });
   return Array.from(byId.values());
@@ -1392,6 +1412,41 @@ document.getElementById('importHistoricalBtn').addEventListener('click', async (
 
   status.style.color = failed ? 'var(--red)' : 'var(--green)';
   status.textContent = '✓ Imported ' + done + ' / ' + total + ' to the Sheet' + (failed ? (' — ' + failed + ' failed, you can run this again') : '') + '. Let Claude know when this finishes so the app can be updated to pull historical jobs from the Sheet instead of having them built in.';
+});
+
+document.getElementById('findDuplicatesBtn').addEventListener('click', ()=>{
+  const report = document.getElementById('duplicatesReport');
+  const groups = {};
+  customInvoices.forEach(j=>{
+    const key = [j.c, j.v, j.d, j.t].map(v=>String(v||'').trim().toLowerCase()).join('|');
+    if(!groups[key]) groups[key] = [];
+    groups[key].push(j);
+  });
+  const dupeGroups = Object.values(groups).filter(g=>g.length > 1);
+
+  if(!dupeGroups.length){
+    report.style.display = 'block';
+    report.innerHTML = '<div class="empty-note" style="color:var(--green);padding-top:10px;">✓ No duplicate invoices found in your saved data (based on matching customer, vehicle, date, and total).</div>';
+    return;
+  }
+
+  const rowsHtml = dupeGroups.map(group=>{
+    const itemsHtml = group.map(j=>
+      `<div style="padding:4px 0;font-family:'IBM Plex Mono';font-size:11.5px;">ID: ${escapeHtml(j.id||'—')} — saved ${j.savedAt ? fmtDate(j.savedAt) : '—'} ${j.custom?'(app-saved)':'(imported)'}</div>`
+    ).join('');
+    return `<div class="mjob" style="margin-bottom:10px;">
+      <b>${escapeHtml(group[0].c)} — ${escapeHtml(group[0].v)} — ${fmtDate(group[0].d)} — ${fmt$(group[0].t)}</b>
+      <div style="margin-top:4px;">${group.length} copies found:</div>
+      ${itemsHtml}
+    </div>`;
+  }).join('');
+
+  report.style.display = 'block';
+  report.innerHTML = `
+    <div class="empty-note" style="color:var(--red);padding-top:10px;">Found ${dupeGroups.length} duplicate group(s), ${dupeGroups.reduce((s,g)=>s+g.length,0)} total rows involved.</div>
+    <div class="empty-note" style="padding-top:0;">This app can't delete rows from your Google Sheet directly yet — open your Invoices tab, search for each ID below, and delete the extra row(s), keeping just one per group.</div>
+    ${rowsHtml}
+  `;
 });
 
 // ---------- utils ----------
