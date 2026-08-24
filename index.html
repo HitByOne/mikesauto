@@ -436,8 +436,10 @@ body.locked .pin-lock-overlay{display:flex;}
       <div class="panel-body" style="padding-bottom:6px;">
         <button type="button" class="pricelist-toggle" id="purchaseFormToggle">+ Log a Parts Purchase</button>
         <button type="button" class="pricelist-toggle" id="importPurchasesToggle" style="margin-left:16px;">Import from CSV</button>
+        <button type="button" class="pricelist-toggle" id="findDuplicatePurchasesBtn" style="margin-left:16px;">Find Duplicates</button>
         <input type="file" id="purchaseCsvInput" accept=".csv" style="display:none;">
         <span id="purchaseImportStatus" class="mono" style="font-size:11.5px;margin-left:10px;"></span>
+        <div id="purchaseDuplicatesReport" style="display:none;margin-top:10px;"></div>
         <div id="purchaseForm" style="display:none;margin-top:10px;">
           <div class="form-grid" style="padding:0 0 10px;grid-template-columns:repeat(3,1fr);">
             <div class="field"><label>Date</label><input id="pDate" type="date"></div>
@@ -780,7 +782,7 @@ async function loadCustomInvoices(){
       const list = await appStorage.list('invoice:', false);
       if(list && list.keys && list.keys.length){
         const results = await Promise.all(list.keys.map(k => appStorage.get(k, false).catch(()=>null)));
-        customInvoices = results.filter(Boolean).map(r => ensureStableId(JSON.parse(r.value)));
+        customInvoices = results.filter(Boolean).map(r => ensureStableId(JSON.parse(r.value), INVOICE_ID_FIELDS));
       }
     }
   }catch(e){ console.warn('storage load failed', e); }
@@ -838,15 +840,23 @@ function simpleHash(str){
   return Math.abs(h).toString(36);
 }
 
-function ensureStableId(job){
-  if(!job.id){
-    // Older records saved before ID tracking existed — give them a stable,
-    // content-based ID so repeated syncs recognize them as the same record
-    // instead of treating them as new every time (which caused duplicates).
-    job.id = 'legacy-' + simpleHash([job.job, job.c, job.v, job.d, job.t].join('|'));
+// Older records saved before ID tracking existed have no stable id — give them
+// one derived from their own content (using the fields that actually apply to
+// that record type) so repeated syncs recognize them as the same record
+// instead of treating them as new every time (which caused duplicates).
+// Different record types (invoices, purchases, labor codes) have different
+// fields, so each needs its own field list — using the wrong ones causes
+// unrelated records to collide or real duplicates to go undetected.
+function ensureStableId(item, fields){
+  if(!item.id){
+    item.id = 'legacy-' + simpleHash(fields.map(f=>String(item[f]||'')).join('|'));
   }
-  return job;
+  return item;
 }
+
+const INVOICE_ID_FIELDS = ['job','c','v','d','t'];
+const PURCHASE_ID_FIELDS = ['date','source','part','amount','customer','vehicle'];
+const LABOR_CODE_ID_FIELDS = ['d','r'];
 
 function parseSheetRow(row){
   const job = Object.assign({}, row);
@@ -857,16 +867,14 @@ function parseSheetRow(row){
   });
   ['l','p','pc','tx','pr','t'].forEach(k=>{ job[k] = Number(job[k])||0; });
   job.custom = true;
-  return ensureStableId(job);
+  return ensureStableId(job, INVOICE_ID_FIELDS);
 }
 
-function mergeById(localArr, remoteArr){
+function mergeById(localArr, remoteArr, fields){
   // Sheet data wins for any id it has (it may reflect edits made elsewhere);
   // local-only ids (not yet pushed) are preserved rather than wiped out.
-  // Items with no id get a stable content-based id so they merge consistently
-  // instead of duplicating on every sync.
   const byId = new Map();
-  const keyOf = item => ensureStableId(item).id;
+  const keyOf = item => ensureStableId(item, fields).id;
   localArr.forEach(item=>{ if(item) byId.set(keyOf(item), item); });
   remoteArr.forEach(item=>{ if(item) byId.set(keyOf(item), item); });
   return Array.from(byId.values());
@@ -879,7 +887,7 @@ async function pullFromSheet(showStatus){
     const res = await fetch(sheetUrl, {method:'GET'});
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const rows = await res.json();
-    customInvoices = mergeById(customInvoices, rows.map(parseSheetRow));
+    customInvoices = mergeById(customInvoices, rows.map(parseSheetRow), INVOICE_ID_FIELDS);
     rebuildAllJobs();
     renderDashboard();
     setSyncStatus('Connected — synced ' + new Date().toLocaleTimeString());
@@ -995,7 +1003,7 @@ async function loadPurchases(){
     const list = await appStorage.list('purchase:', false);
     if(list && list.keys && list.keys.length){
       const results = await Promise.all(list.keys.map(k => appStorage.get(k, false).catch(()=>null)));
-      purchases = results.filter(Boolean).map(r => JSON.parse(r.value));
+      purchases = results.filter(Boolean).map(r => ensureStableId(JSON.parse(r.value), PURCHASE_ID_FIELDS));
       renderPurchases();
     }
   }catch(e){ console.warn('purchase load failed', e); }
@@ -1008,7 +1016,7 @@ async function pullPurchasesFromSheet(){
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const rows = await res.json();
     const remote = rows.map(r => Object.assign({}, r, { amount: Number(r.amount)||0 }));
-    purchases = mergeById(purchases, remote);
+    purchases = mergeById(purchases, remote, PURCHASE_ID_FIELDS);
     renderPurchases();
   }catch(e){ console.warn('pull purchases failed', e); }
 }
@@ -1222,7 +1230,7 @@ async function loadCustomLaborCodes(){
     const list = await appStorage.list('laborcode:', false);
     if(list && list.keys && list.keys.length){
       const results = await Promise.all(list.keys.map(k => appStorage.get(k, false).catch(()=>null)));
-      customLaborCodes = results.filter(Boolean).map(r => JSON.parse(r.value));
+      customLaborCodes = results.filter(Boolean).map(r => ensureStableId(JSON.parse(r.value), LABOR_CODE_ID_FIELDS));
       rebuildLaborOptions();
     }
   }catch(e){ console.warn('labor code load failed', e); }
@@ -1235,7 +1243,7 @@ async function pullLaborCodesFromSheet(){
     if(!res.ok) throw new Error('HTTP ' + res.status);
     const rows = await res.json();
     const remote = rows.map(r => ({ id: r.id, d: r.d, r: Number(r.r)||0, addedAt: r.addedAt }));
-    customLaborCodes = mergeById(customLaborCodes, remote);
+    customLaborCodes = mergeById(customLaborCodes, remote, LABOR_CODE_ID_FIELDS);
     rebuildLaborOptions();
   }catch(e){ console.warn('pull labor codes failed', e); }
 }
@@ -1414,11 +1422,11 @@ document.getElementById('importHistoricalBtn').addEventListener('click', async (
   status.textContent = '✓ Imported ' + done + ' / ' + total + ' to the Sheet' + (failed ? (' — ' + failed + ' failed, you can run this again') : '') + '. Let Claude know when this finishes so the app can be updated to pull historical jobs from the Sheet instead of having them built in.';
 });
 
-document.getElementById('findDuplicatesBtn').addEventListener('click', ()=>{
-  const report = document.getElementById('duplicatesReport');
+function findAndReportDuplicates(items, keyFields, reportElId, labelFn, noneLabel){
+  const report = document.getElementById(reportElId);
   const groups = {};
-  customInvoices.forEach(j=>{
-    const key = [j.c, j.v, j.d, j.t].map(v=>String(v||'').trim().toLowerCase()).join('|');
+  items.forEach(j=>{
+    const key = keyFields.map(f=>String(j[f]||'').trim().toLowerCase()).join('|');
     if(!groups[key]) groups[key] = [];
     groups[key].push(j);
   });
@@ -1426,16 +1434,16 @@ document.getElementById('findDuplicatesBtn').addEventListener('click', ()=>{
 
   if(!dupeGroups.length){
     report.style.display = 'block';
-    report.innerHTML = '<div class="empty-note" style="color:var(--green);padding-top:10px;">✓ No duplicate invoices found in your saved data (based on matching customer, vehicle, date, and total).</div>';
+    report.innerHTML = `<div class="empty-note" style="color:var(--green);padding-top:10px;">✓ No duplicates found (based on matching ${noneLabel}).</div>`;
     return;
   }
 
   const rowsHtml = dupeGroups.map(group=>{
     const itemsHtml = group.map(j=>
-      `<div style="padding:4px 0;font-family:'IBM Plex Mono';font-size:11.5px;">ID: ${escapeHtml(j.id||'—')} — saved ${j.savedAt ? fmtDate(j.savedAt) : '—'} ${j.custom?'(app-saved)':'(imported)'}</div>`
+      `<div style="padding:4px 0;font-family:'IBM Plex Mono';font-size:11.5px;">ID: ${escapeHtml(j.id||'—')}${j.savedAt ? (' — saved ' + fmtDate(j.savedAt)) : (j.addedAt ? (' — logged ' + fmtDate(j.addedAt)) : '')}</div>`
     ).join('');
     return `<div class="mjob" style="margin-bottom:10px;">
-      <b>${escapeHtml(group[0].c)} — ${escapeHtml(group[0].v)} — ${fmtDate(group[0].d)} — ${fmt$(group[0].t)}</b>
+      <b>${escapeHtml(labelFn(group[0]))}</b>
       <div style="margin-top:4px;">${group.length} copies found:</div>
       ${itemsHtml}
     </div>`;
@@ -1444,9 +1452,25 @@ document.getElementById('findDuplicatesBtn').addEventListener('click', ()=>{
   report.style.display = 'block';
   report.innerHTML = `
     <div class="empty-note" style="color:var(--red);padding-top:10px;">Found ${dupeGroups.length} duplicate group(s), ${dupeGroups.reduce((s,g)=>s+g.length,0)} total rows involved.</div>
-    <div class="empty-note" style="padding-top:0;">This app can't delete rows from your Google Sheet directly yet — open your Invoices tab, search for each ID below, and delete the extra row(s), keeping just one per group.</div>
+    <div class="empty-note" style="padding-top:0;">This app can't delete rows from your Google Sheet directly yet — open the relevant Sheet tab, search for each ID below, and delete the extra row(s), keeping just one per group.</div>
     ${rowsHtml}
   `;
+}
+
+document.getElementById('findDuplicatesBtn').addEventListener('click', ()=>{
+  findAndReportDuplicates(
+    customInvoices, ['c','v','d','t'], 'duplicatesReport',
+    j => `${j.c} — ${j.v} — ${fmtDate(j.d)} — ${fmt$(j.t)}`,
+    'customer, vehicle, date, and total'
+  );
+});
+
+document.getElementById('findDuplicatePurchasesBtn').addEventListener('click', ()=>{
+  findAndReportDuplicates(
+    purchases, ['date','source','part','amount','customer'], 'purchaseDuplicatesReport',
+    p => `${p.date} — ${p.source||'—'} — ${p.part} — ${fmt$(p.amount)}`,
+    'date, vendor, part, and amount'
+  );
 });
 
 // ---------- utils ----------
