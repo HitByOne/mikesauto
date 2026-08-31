@@ -141,6 +141,11 @@ td.num{font-family:'IBM Plex Mono';text-align:right;white-space:nowrap;}
   grid-column:1/-1;font-family:'Oswald';font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--amber-dark);
   font-weight:600;border-top:1px solid var(--line);padding-top:12px;margin-top:2px;
 }
+.vehicle-pick-btn{
+  display:block;width:100%;text-align:left;background:#FCEFD8;border:1px solid #f0d9a8;color:var(--amber-dark);
+  padding:6px 10px;border-radius:4px;font-size:12.5px;cursor:pointer;margin-bottom:5px;
+}
+.vehicle-pick-btn:hover{background:#f7e3bb;}
 .field input, .field select{
   width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:var(--radius);font-family:'Inter';font-size:13.5px;background:#fbfaf7;
 }
@@ -496,7 +501,12 @@ body.locked .pin-lock-overlay{display:flex;}
       </div>
 
       <div class="form-grid">
-        <div class="field"><label>Customer Name</label><input id="fCustomer" placeholder="Jane Smith"></div>
+        <div class="field">
+          <label>Customer Name</label>
+          <input id="fCustomer" placeholder="Jane Smith" list="customerOptions" autocomplete="off">
+          <div id="returningCustomerNote" class="empty-note" style="display:none;padding:5px 0 0;"></div>
+          <div id="vehiclePicker" style="display:none;margin-top:6px;"></div>
+        </div>
         <div class="field"><label>Cell Phone</label><input id="fPhone" type="tel" placeholder="901-555-0110"></div>
         <div class="field"><label>Email</label><input id="fEmail" type="email" placeholder="jane@email.com"></div>
 
@@ -539,6 +549,7 @@ body.locked .pin-lock-overlay{display:flex;}
         <div id="jobGroupsContainer"></div>
         <datalist id="laborCodesOptions"></datalist>
         <datalist id="vendorOptions"></datalist>
+        <datalist id="customerOptions"></datalist>
         <div class="empty-note" id="jobsEmpty">No jobs yet — add one above (e.g. "Front Brakes", "Rear Brakes").</div>
         <div class="empty-note" style="padding-top:0;">Each job gets its own labor line and parts — they'll print grouped together, like separate repair jobs on the same vehicle.</div>
         <div class="empty-note" style="padding-top:0;">Parts with a cost and vendor filled in are automatically logged to your Parts Purchases tracker when you save a new invoice (not on edits/re-saves).</div>
@@ -794,7 +805,93 @@ async function loadCustomInvoices(){
 
 function rebuildAllJobs(){
   allJobs = SEED_JOBS.concat(customInvoices);
+  buildCustomerIndex();
 }
+
+// ---------- Returning customer lookup ----------
+let customerIndex = {};
+
+function buildCustomerIndex(){
+  customerIndex = {};
+  allJobs.forEach(j=>{
+    if(!j.c) return;
+    const key = j.c.trim().toLowerCase();
+    if(!key) return;
+    if(!customerIndex[key]) customerIndex[key] = { displayName: j.c.trim(), vehicles: [] };
+    const vehKey = (j.vin && j.vin.trim()) ? ('vin:' + j.vin.trim().toLowerCase()) : ('v:' + (j.v||'').trim().toLowerCase());
+    const time = j.savedAt || j.d || '';
+    const profile = {
+      vehKey, v: j.v||'', engine: j.engine||'', color: j.color||'', vin: j.vin||'',
+      phone: j.phone||'', email: j.email||'', plate: j.plate||'', milesOut: j.milesOut||'',
+      time
+    };
+    const existing = customerIndex[key].vehicles.find(x=>x.vehKey === vehKey);
+    if(!existing){
+      customerIndex[key].vehicles.push(profile);
+    } else if(String(time) > String(existing.time)){
+      Object.assign(existing, profile);
+    }
+  });
+  const el = document.getElementById('customerOptions');
+  if(el){
+    el.innerHTML = Object.values(customerIndex).map(c => `<option value="${escapeHtml(c.displayName)}">`).join('');
+  }
+}
+
+function fillVehicleProfile(p){
+  let year='', make='', model='';
+  if(p.v){
+    const parts = p.v.trim().split(/\s+/);
+    if(/^\d{4}$/.test(parts[0])){ year=parts[0]; make=parts[1]||''; model=parts.slice(2).join(' '); }
+    else { model = p.v; }
+  }
+  document.getElementById('fYear').value = year;
+  document.getElementById('fMake').value = make;
+  document.getElementById('fModel').value = model;
+  document.getElementById('fEngine').value = p.engine||'';
+  document.getElementById('fColor').value = p.color||'';
+  document.getElementById('fVin').value = p.vin||'';
+  document.getElementById('fPlate').value = p.plate||'';
+  if(p.milesOut) document.getElementById('fMilesIn').value = p.milesOut;
+  if(p.phone) document.getElementById('fPhone').value = p.phone;
+  if(p.email) document.getElementById('fEmail').value = p.email;
+}
+
+document.getElementById('fCustomer').addEventListener('input', e=>{
+  const key = e.target.value.trim().toLowerCase();
+  const note = document.getElementById('returningCustomerNote');
+  const picker = document.getElementById('vehiclePicker');
+  const match = key ? customerIndex[key] : null;
+
+  if(!match){
+    note.style.display = 'none';
+    picker.style.display = 'none';
+    return;
+  }
+
+  if(match.vehicles.length === 1){
+    fillVehicleProfile(match.vehicles[0]);
+    picker.style.display = 'none';
+    note.style.display = 'block';
+    note.style.color = 'var(--green)';
+    note.textContent = '✓ Loaded info for returning customer.';
+  } else {
+    note.style.display = 'none';
+    picker.style.display = 'block';
+    picker.innerHTML = '<div class="empty-note" style="padding:0 0 4px;">Multiple vehicles on file for this customer — pick one:</div>' +
+      match.vehicles.map((v,i)=>`<button type="button" class="vehicle-pick-btn" data-i="${i}">${escapeHtml(v.v||'Unknown vehicle')}${v.vin?(' — VIN '+escapeHtml(v.vin)):''}</button>`).join('');
+    picker.querySelectorAll('.vehicle-pick-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const p = match.vehicles[Number(btn.dataset.i)];
+        fillVehicleProfile(p);
+        picker.style.display = 'none';
+        note.style.display = 'block';
+        note.style.color = 'var(--green)';
+        note.textContent = '✓ Loaded ' + (p.v || 'vehicle') + '.';
+      });
+    });
+  }
+});
 
 // ---------- Google Sheet sync ----------
 function setSyncStatus(text, isError){
@@ -1804,6 +1901,8 @@ function loadJobIntoEditor(job){
   dtcCodes = job.dtc ? job.dtc.slice() : [];
   currentEditingId = job.id || null;
   docType = job.isQuote ? 'quote' : 'invoice';
+  document.getElementById('returningCustomerNote').style.display='none';
+  document.getElementById('vehiclePicker').style.display='none';
 
   document.getElementById('fCustomer').value = job.c || '';
   document.getElementById('fPhone').value = job.phone || '';
@@ -2293,6 +2392,8 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   });
   document.getElementById('fDate').value='';
   document.getElementById('fTaxRate').value='9.75';
+  document.getElementById('returningCustomerNote').style.display='none';
+  document.getElementById('vehiclePicker').style.display='none';
   renderJobGroups(); renderDtcChips(); calcTotals(); updateDocTypeUI();
   document.getElementById('savedFlash').style.display='none';
 });
