@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#212B38">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Mike Auto">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Mike Automotive — Shop Ledger</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
 <style>
@@ -64,7 +69,7 @@ nav.tabs button:not(.active):hover{background:#ffffff14;color:#fff;}
 @keyframes fadein{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
 
 /* ===== KPI cards ===== */
-.kpi-row{display:grid;grid-template-columns:1.3fr repeat(3,1fr);gap:14px;margin-bottom:22px;}
+.kpi-row{display:grid;grid-template-columns:1.3fr repeat(4,1fr);gap:14px;margin-bottom:22px;}
 @media(max-width:900px){.kpi-row{grid-template-columns:1fr 1fr;}}
 .kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);}
 .kpi .label{font-size:10.5px;letter-spacing:.1em;color:var(--ink-soft);text-transform:uppercase;font-weight:600;margin-bottom:6px;}
@@ -292,6 +297,28 @@ body.locked .pin-lock-overlay{display:flex;}
   .wrap{padding:0;max-width:none;}
   .view:not(.active){display:none !important;}
 }
+/* ---- v3 additions ---- */
+.unsynced-pill{display:none;background:var(--red);color:#fff;border:none;border-radius:20px;padding:5px 12px;font-size:11.5px;font-weight:700;cursor:pointer;margin-left:12px;}
+.unsynced-pill.show{display:inline-block;}
+.unpaid-badge{background:var(--red);color:#fff;font-size:9.5px;padding:1px 6px;border-radius:3px;font-weight:700;margin-left:6px;vertical-align:middle;letter-spacing:.03em;}
+.unsynced-badge{background:#7a4f00;color:#fff;font-size:9.5px;padding:1px 6px;border-radius:3px;font-weight:700;margin-left:6px;vertical-align:middle;letter-spacing:.03em;}
+.ticket-actions{position:sticky;bottom:0;background:var(--panel);border-top:1px solid var(--line);z-index:5;}
+.saved-flash.err{background:#FBE7E3;color:var(--red);border-color:#f0c4bb;}
+.saved-flash.warn{background:#FCEFD8;color:#7a4f00;border-color:#f0d9a8;}
+.modal-actions{flex-wrap:wrap;}
+.kpi.clickable{cursor:pointer;}
+.kpi .value.red{color:var(--red);}
+.banner-note{display:none;background:#FCEFD8;color:#7a4f00;border:1px solid #f0d9a8;border-radius:var(--radius);padding:10px 14px;margin-bottom:16px;font-size:12.5px;font-weight:600;align-items:center;gap:10px;flex-wrap:wrap;}
+.banner-note.show{display:flex;}
+.pay-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;padding:0 24px 8px;}
+@media(max-width:700px){.pay-grid{grid-template-columns:1fr;}}
+.cust-detail td{background:#FAF8F2;padding:10px 14px;}
+.cust-job{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px dotted var(--line);cursor:pointer;font-size:12.5px;}
+.cust-job:hover{color:var(--amber-dark);}
+.rep-note{font-size:12px;color:var(--ink-soft);padding:4px 18px 14px;line-height:1.5;}
+.due-over{color:var(--red);font-weight:700;}
+.due-soon{color:var(--amber-dark);font-weight:700;}
+.tab-count{background:var(--red);color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;margin-left:5px;vertical-align:middle;}
 </style>
 </head>
 <body class="locked">
@@ -302,6 +329,7 @@ body.locked .pin-lock-overlay{display:flex;}
     <h2>Mike Automotive</h2>
     <p>Enter PIN to continue</p>
     <input type="password" inputmode="numeric" maxlength="4" id="pinInput" class="pin-input" placeholder="••••" autocomplete="off">
+    <input type="password" id="pinKeyInput" class="pin-input" style="display:none;letter-spacing:normal;font-size:14px;margin-top:8px;" placeholder="Access key (first time on this device)" autocomplete="off">
     <button type="button" class="btn btn-amber" id="pinUnlockBtn" style="width:100%;margin-top:10px;">Unlock</button>
     <div class="pin-error" id="pinError"></div>
   </div>
@@ -319,7 +347,10 @@ body.locked .pin-lock-overlay{display:flex;}
     <nav class="tabs">
       <button class="active" data-view="dashboard">Dashboard</button>
       <button data-view="invoice">New Invoice</button>
+      <button data-view="customers">Customers<span class="tab-count" id="custTabCount" style="display:none;"></span></button>
+      <button data-view="reports">Reports</button>
     </nav>
+    <button type="button" id="unsyncedPill" class="unsynced-pill" title="Click to retry syncing now"></button>
     <button type="button" id="lockAppBtn" class="btn btn-ghost btn-sm" style="border-color:#ffffff40;color:#fff;margin-left:12px;">🔒 Lock</button>
   </div>
 </div>
@@ -328,6 +359,12 @@ body.locked .pin-lock-overlay{display:flex;}
 
   <!-- ============ DASHBOARD ============ -->
   <div id="view-dashboard" class="view active">
+
+    <div class="banner-note" id="backupReminder">
+      <span id="backupReminderText">Time for a backup.</span>
+      <button type="button" class="btn btn-amber btn-sm" id="backupReminderBtn">Download Backup Now</button>
+      <button type="button" class="btn btn-ghost btn-sm" id="backupReminderLater">Later</button>
+    </div>
 
     <div class="kpi-row">
       <div class="kpi gauge-kpi">
@@ -351,6 +388,11 @@ body.locked .pin-lock-overlay{display:flex;}
         <div class="label">Total Profit</div>
         <div class="value green" id="kpiProfit">—</div>
         <div class="sub2" id="kpiCost">— in parts cost</div>
+      </div>
+      <div class="kpi clickable" id="kpiOwedCard" title="Click to show unpaid invoices">
+        <div class="label">Money Owed (Unpaid)</div>
+        <div class="value red" id="kpiOwed">—</div>
+        <div class="sub2" id="kpiOwedCount">— unpaid invoices</div>
       </div>
       <div class="kpi">
         <div class="label">Avg Ticket</div>
@@ -376,13 +418,19 @@ body.locked .pin-lock-overlay{display:flex;}
         <span id="syncStatus" class="mono" style="color:var(--ink-soft);font-size:11.5px;">Not connected</span>
       </div>
       <div class="panel-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-        <button class="btn btn-amber btn-sm" id="pullSheetBtn">Pull Latest From Sheet</button>
+        <button class="btn btn-amber btn-sm" id="pullSheetBtn">Sync Now</button>
         <button type="button" class="pricelist-toggle" id="syncAdvancedToggle" style="margin-left:auto;">Advanced ▾</button>
       </div>
       <div id="syncAdvancedPanel" style="display:none;padding:0 18px 18px;">
         <div class="form-grid" style="padding:10px 0 12px;grid-template-columns:1fr auto;">
           <div class="field"><label>Google Sheet Web App URL</label><input id="sheetUrlInput" placeholder="https://script.google.com/macros/s/.../exec"></div>
           <div class="field" style="align-self:flex-end;"><button class="btn btn-amber btn-sm" id="connectSheetBtn" style="width:100%;">Save &amp; Connect</button></div>
+        </div>
+        <div class="form-grid" style="padding:0 0 12px;grid-template-columns:1fr 1fr;">
+          <div class="field"><label>Access Key (this device)</label><input id="accessKeyInput" type="password" placeholder="The key from your Apps Script" autocomplete="off"></div>
+          <div class="field"><label>This Device's Name</label><input id="deviceNameInput" placeholder="e.g. Shop PC"></div>
+          <div class="field" style="grid-column:1/-1;"><label>Thank-you note printed on invoices</label><input id="printNoteInput" placeholder="Thank you for your business!"></div>
+          <div class="field"><button class="btn btn-amber btn-sm" id="saveSettingsBtn">Save Settings</button> <span id="settingsStatus" class="mono" style="font-size:11.5px;color:var(--green);"></span></div>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
           <button class="btn btn-ghost btn-sm" id="disconnectSheetBtn">Disconnect</button>
@@ -400,9 +448,9 @@ body.locked .pin-lock-overlay{display:flex;}
       </div>
       <div class="panel-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
         <button class="btn btn-ghost btn-sm" id="exportCsvBtn">Export CSV (Excel)</button>
-        <button class="btn btn-ghost btn-sm" id="downloadBackupBtn">Download Backup (JSON)</button>
+        <button class="btn btn-ghost btn-sm" id="downloadBackupBtn">Download Full Backup (JSON)</button>
         <button class="btn btn-ghost btn-sm" id="restoreBackupBtn">Restore Backup</button>
-        <button class="btn btn-amber btn-sm" id="importHistoricalBtn">Import 189 Historical Jobs to Sheet</button>
+        <button class="btn btn-ghost btn-sm" id="exportPurchasesCsvBtn">Export Parts Log CSV</button>
         <button class="btn btn-amber btn-sm" id="findDuplicatesBtn">Find Duplicate Invoices</button>
         <button class="btn btn-ghost btn-sm" id="removeDuplicatesBtn">Auto-Remove Duplicate Invoices</button>
         <input type="file" id="restoreFileInput" accept="application/json" style="display:none;">
@@ -414,7 +462,15 @@ body.locked .pin-lock-overlay{display:flex;}
     <div class="panel">
       <div class="panel-head">
         <h3>Job Log <span id="rowCount" class="mono" style="color:var(--ink-soft);font-size:12px;"></span></h3>
-        <input class="search-input" id="jobSearch" placeholder="Search customer, vehicle, job...">
+        <span style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <select class="search-input" id="jobFilter" style="min-width:130px;">
+            <option value="all">All records</option>
+            <option value="unpaid">Unpaid only</option>
+            <option value="invoices">Invoices only</option>
+            <option value="quotes">Quotes only</option>
+          </select>
+          <input class="search-input" id="jobSearch" placeholder="Search customer, vehicle, job...">
+        </span>
       </div>
       <div class="table-scroll">
         <table>
@@ -482,6 +538,66 @@ body.locked .pin-lock-overlay{display:flex;}
   </div>
 
   <!-- ============ NEW INVOICE ============ -->
+  <!-- ============ CUSTOMERS ============ -->
+  <div id="view-customers" class="view">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Service Reminders <span class="mono" id="dueCount" style="color:var(--ink-soft);font-size:12px;"></span></h3>
+        <span class="mono" style="color:var(--ink-soft);font-size:11.5px;">Next oil service due within 30 days (or overdue)</span>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Customer</th><th>Vehicle</th><th>Due</th><th>Phone</th><th>Contact</th></tr></thead>
+          <tbody id="dueBody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head">
+        <h3>All Customers <span class="mono" id="custCount" style="color:var(--ink-soft);font-size:12px;"></span></h3>
+        <input class="search-input" id="custSearch" placeholder="Search name, phone, vehicle...">
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead><tr><th>Customer</th><th>Phone</th><th style="text-align:right">Visits</th><th style="text-align:right">Total Spent</th><th style="text-align:right">Owes</th><th>Last Visit</th></tr></thead>
+          <tbody id="custBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ REPORTS ============ -->
+  <div id="view-reports" class="view">
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Sales &amp; Tax by Month</h3>
+        <span style="display:flex;gap:8px;align-items:center;">
+          <select class="search-input" id="repYear" style="min-width:110px;"></select>
+          <button class="btn btn-ghost btn-sm" id="exportTaxCsvBtn">Export CSV</button>
+        </span>
+      </div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Month</th><th style="text-align:right">Invoices</th><th style="text-align:right">Labor</th><th style="text-align:right">Parts</th><th style="text-align:right">Shop Supplies</th><th style="text-align:right">Taxable Sales</th><th style="text-align:right">Tax Collected</th><th style="text-align:right">Total Sales</th><th style="text-align:right">Unpaid</th></tr></thead>
+        <tbody id="taxBody"></tbody>
+      </table></div>
+      <div class="rep-note">Taxable sales = parts + shop supplies (labor is not taxed). Quotes are excluded. Older invoices that didn't store a shop supplies amount have it worked out from their totals.</div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h3>Parts Check — Bought vs. Billed</h3></div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Month</th><th style="text-align:right">Parts Cost on Invoices</th><th style="text-align:right">Purchases Logged</th><th style="text-align:right">Difference</th></tr></thead>
+        <tbody id="reconBody"></tbody>
+      </table></div>
+      <div class="rep-note">A positive difference means you logged more purchases than you billed to customers (parts bought but maybe never billed, or shop stock). A negative difference means more was billed than is in the parts log.</div>
+      <div class="panel-head" style="border-top:1px solid var(--line);"><h3>Purchases With No Matching Invoice <span class="mono" id="unbilledCount" style="color:var(--ink-soft);font-size:12px;"></span></h3></div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Date</th><th>Vendor</th><th>Part</th><th>Customer</th><th style="text-align:right">Amount</th><th>Why flagged</th></tr></thead>
+        <tbody id="unbilledBody"></tbody>
+      </table></div>
+      <div class="rep-note">Only purchases you typed in by hand are checked (parts auto-logged from an invoice are already billed). A purchase is flagged when no invoice for that customer is dated within 60 days of it.</div>
+    </div>
+  </div>
+
   <div id="view-invoice" class="view">
     <div class="ticket">
       <div class="doc-type-toggle">
@@ -584,6 +700,13 @@ body.locked .pin-lock-overlay{display:flex;}
         </div>
       </div>
 
+      <div id="paymentPanel">
+        <div class="pay-grid">
+          <div class="field"><label>Payment Status</label><select id="fPaid"><option value="unpaid">Unpaid</option><option value="paid">Paid</option></select></div>
+          <div class="field"><label>Payment Method</label><select id="fPayMethod"><option value="">—</option><option>Cash</option><option>Card</option><option>Zelle</option><option>Check</option><option>Cash App</option><option>Venmo</option><option>Other</option></select></div>
+          <div class="field"><label>Date Paid</label><input id="fPaidDate" type="date"></div>
+        </div>
+      </div>
       <div class="saved-flash" id="savedFlash">✓ Invoice saved to the shop ledger.</div>
       <div class="ticket-actions">
         <button class="btn btn-ghost" id="printBtn">Print Customer Invoice</button>
@@ -603,9 +726,24 @@ body.locked .pin-lock-overlay{display:flex;}
     </div>
     <div class="modal-body" id="detailModalBody"></div>
     <div class="modal-actions">
+      <select id="detailPayMethod" class="search-input" style="min-width:90px;"><option>Cash</option><option>Card</option><option>Zelle</option><option>Check</option><option>Cash App</option><option>Venmo</option><option>Other</option></select>
+      <button type="button" class="btn btn-amber" id="detailPayBtn">Mark Paid</button>
+      <button type="button" class="btn btn-amber" id="detailConvertBtn" style="display:none;">Convert to Invoice</button>
       <button type="button" class="btn btn-ghost" id="detailPrintBtn">Print Customer Invoice</button>
       <button type="button" class="btn btn-steel" id="detailLoadBtn">Load Into Editor</button>
     </div>
+  </div>
+</div>
+
+<div id="accessModalOverlay" class="modal-overlay" style="z-index:300;">
+  <div class="modal-panel" style="max-width:420px;">
+    <div class="modal-head"><h3>Access Key Needed</h3><button type="button" class="modal-close" id="accessModalClose">✕</button></div>
+    <div class="modal-body">
+      <p style="margin-top:0;">Your Google Sheet is protected. Enter the access key once on this device and it will be remembered.</p>
+      <input type="password" id="accessModalInput" class="search-input" style="width:100%;" placeholder="Access key" autocomplete="off">
+      <div id="accessModalMsg" class="mono" style="font-size:11.5px;color:var(--red);margin-top:8px;min-height:16px;"></div>
+    </div>
+    <div class="modal-actions"><button type="button" class="btn btn-amber" id="accessModalSave">Save Key</button></div>
   </div>
 </div>
 
@@ -620,7 +758,7 @@ body.locked .pin-lock-overlay{display:flex;}
         <li>Go to <a href="https://sheets.google.com" target="_blank" rel="noopener">sheets.google.com</a> and create a new blank spreadsheet.</li>
         <li>Click <b>Extensions → Apps Script</b>.</li>
         <li>Delete the placeholder code, then click <b>Copy Script</b> below and paste it in.</li>
-        <li>Save (Ctrl/Cmd+S).</li>
+        <li>Near the top, change <code>ACCESS_KEY</code> to a long random password of your own. Save (Ctrl/Cmd+S).</li>
         <li><b>Deploy → New deployment</b> → gear icon → <b>Web app</b> → Execute as: <b>Me</b> → Who has access: <b>Anyone</b> → <b>Deploy</b>.</li>
         <li>Authorize when prompted (Advanced → Go to project (unsafe) is normal for your own scripts).</li>
         <li>Copy the URL ending in <code>/exec</code> and paste it into the Multi-Location Sync panel, then click <b>Save &amp; Connect</b>.</li>
@@ -672,7 +810,7 @@ const appStorage = (function(){
   };
 })();
 const LABOR_CODES = [{"d":"AIR CONDITION SERVICE","r":165.0,"code":"A/C"},{"d":"AIR CONDITION SERVICE FRONT AND REAR","r":176.0,"code":"AC F R"},{"d":"AIR CONDITION SERVICE RYF 12 OZ","r":250.0,"code":"AC RFY 1"},{"d":"AIR CONDITION SERVICE RFY 12 TO 24 OZ","r":300.0,"code":"AC RFY 2"},{"d":"AIR CONDITION SRVICE RFY 24 TO 32 OZ","r":385.0,"code":"AC RFY 3"},{"d":"Administration Fee","r":151.0,"code":"ADM"},{"d":"ALIGNMENT","r":110.0,"code":"AL1"},{"d":"ALIGNMENT/ COMPANY","r":135.0,"code":"AL2"},{"d":"ALIGNMENT TRUCKS","r":150.0,"code":"AL3"},{"d":"ALIGNMENT FOUR WHEEL","r":150.0,"code":"AL4"},{"d":"SERVICE REAR BRAKE PADS AND TURN ROTORS","r":198.0,"code":"BRK 1"},{"d":"SERVICE FRONT BRAKE PADS AND TURN ROTORS","r":198.0,"code":"BRK 2"},{"d":"SERVICE FRONT BRAKE PADS AND REPLACE ROTORS","r":150.0,"code":"BRK 3"},{"d":"SERVICE REAR BRAKE PADS AND REPLACE ROTORS","r":150.0,"code":"BRK 4"},{"d":"SERVICE FRONT BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)","r":198.0,"code":"BRK 5"},{"d":"SERVICE REAR BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)","r":198.0,"code":"BRK 6"},{"d":"FRONT BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)","r":150.0,"code":"BRK 7"},{"d":"REAR BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)","r":150.0,"code":"BRK 8"},{"d":"SERVICE REAR BRAKE SHOES","r":110.0,"code":"BRK 9"},{"d":"SERVICE REAR BRAKE SHOES AND TURN DRUM","r":150.0,"code":"BRK 91"},{"d":"FRONT BRAKE PADS SERVCE ONLY","r":99.5,"code":"BRK FRONT"},{"d":"REAR BRAKE PADS SERVCE ONLY","r":99.5,"code":"BRK REAR"},{"d":"FLUSH/BLEED BRAKE SYSTEM","r":99.5,"code":"BRK BLD"},{"d":"CHECK OUT SERVICE","r":61.0,"code":"CK OUT 2"},{"d":"Diagnostics Fee","r":110.0,"code":"DIAG"},{"d":"Freight","r":0.0,"code":"FRT"},{"d":"GAS","r":0.0,"code":"G"},{"d":"FUEL INJECTION CLEAN","r":110.0,"code":"INJ1"},{"d":"Intelligence Power Distribution Module","r":0.0,"code":"IPDM"},{"d":"TOPCARFIXER1","r":99.5,"code":"LAB"},{"d":"Standard Labor Rate","r":110.0,"code":"LAB2"},{"d":"TOPCARFIXER2","r":99.5,"code":"LAB3"},{"d":"LATE FEE","r":25.0,"code":"LF"},{"d":"OIL CHANGE AND ROTATE OVER \"18\" (BMW/AUDI/JAG)","r":155.0,"code":"LOF EUR"},{"d":"OIL CHANGE AND ROTATE UNDER \"18 (BMW/AUDI/JAG)","r":145.0,"code":"LOF EUR1"},{"d":"OIL CHANGE AND ROTATE OVER \"18\"","r":85.0,"code":"LOF RT"},{"d":"OIL CHANGE AND ROTATE UNDER \"18","r":70.0,"code":"LOF RT1"},{"d":"LUBE AND OIL FILTER","r":30.0,"code":"LOF1"},{"d":"OIL AND FILTER CHANGE /W SKID PLATE OR UNDER COVER","r":36.0,"code":"LOF2"},{"d":"OIL CHANGE W/ CUSTOMER PARTS","r":29.5,"code":"LOF3"},{"d":"OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER OVER 18\"","r":94.9,"code":"LOF4"},{"d":"OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER UNDER 18\"","r":80.4,"code":"LOF5"},{"d":"MISCELLANIES","r":75.0,"code":"MISC75"},{"d":"Computer Program","r":100.0,"code":"PRO100"},{"d":"MOUNT AND BALANCE OVER 18","r":39.0,"code":"R0T2"},{"d":"mount and balance CAR TIRE UNDER 18","r":34.0,"code":"ROT1"},{"d":"rotate and balance tires","r":65.0,"code":"ROT2"},{"d":"MOUNT TIRE ONLY","r":30.0,"code":"ROT3"},{"d":"ROTATE ONLY UNDER \"18\"","r":41.0,"code":"ROT4"},{"d":"ROTATE ONLY OVER\"18\"","r":58.0,"code":"ROT5"},{"d":"ROTATE AND BALANCE OVER\"18\"","r":76.0,"code":"ROT6"},{"d":"ROTOR TURN","r":21.0,"code":"ROT7"},{"d":"SHIPPING AND HANDLING","r":0.0,"code":"SHP N HND"},{"d":"TIRE DISPOSEL","r":3.0,"code":"TD1"},{"d":"TOW OUT OF AREA","r":200.0,"code":"TOW"},{"d":"TOW FEE CULP & SON","r":85.0,"code":"TOW001"},{"d":"TOW AFTER HOURS","r":125.0,"code":"TOW002"},{"d":"TIRE PLUG","r":25.0,"code":"TP1"},{"d":"TIRE PATCH NO BALANCE","r":42.0,"code":"TP2"},{"d":"TIRE PATCH W/ BALANCE","r":45.0,"code":"TP3"},{"d":"TIRE PRESSURE MONITOR REPROGRAM","r":99.5,"code":"TPM 1"},{"d":"REPLACE A/C COMPRESSOR","r":0,"code":"A/C COMP"},{"d":"REPLACE A/C CONDENSOR","r":0,"code":"A/C COND"},{"d":"REPLACE AC RESISTOR","r":0,"code":"RIS"},{"d":"REPLACE ALTERNATOR","r":0,"code":"ALT"},{"d":"REPLACE BLEND DOOR ACTUATOR","r":0,"code":"BLD DOOR"},{"d":"REPLACE BLOWER MOTOR","r":0,"code":"BL MOTOR"},{"d":"REPLACE CABIN AIR FILTER","r":0,"code":"CAB FILTER"},{"d":"REPLACE COOLANT TEMP SENSOR","r":0,"code":"TMP SENSOR"},{"d":"REPLACE DRIVE BELT","r":0,"code":"BELT"},{"d":"REPLACE ENGINE MOTOR MOUNT","r":0,"code":"MOT MOT"},{"d":"REPLACE ENGINE TORQUE MOUNT","r":0,"code":"TOR"},{"d":"REPLACE FRONT STRUTS SUSPENSION BOTH SIDES","r":0,"code":"STRUT FRT"},{"d":"REPLACE FRONT STRUTS SUSPENSION ONE SIDES","r":0,"code":"STRUT FRT"},{"d":"REPLACE HEADLIGHT BULBS","r":0,"code":"BULB"},{"d":"REPLACE IGNITION COIL","r":0,"code":"COIL"},{"d":"REPLACE MASS AIR FLOW SENSOR","r":0,"code":"MAP"},{"d":"REPLACE MASTER BRAKE CYLINDER","r":0,"code":"MAS CYL"},{"d":"REPLACE OXYGEN SENSORS","r":0,"code":"OXY"},{"d":"REPLACE PURGE VALVES","r":0,"code":"PG VALV"},{"d":"REPLACE RADIATOR/HOSES","r":0,"code":"RAD"},{"d":"REPLACE REAR SHOCKS","r":0,"code":"STRUT REAR"},{"d":"REPLACE SPARK PLUG AND IGNITION COIL","r":0,"code":"PLUG"},{"d":"REPLACE SWAY BAR BUSHING","r":0,"code":"SW BAR"},{"d":"REPLACE TAILGATE ACTUATOR","r":99.5,"code":"TAIL"},{"d":"REPLACE THROTTLE BODY","r":0,"code":"THT BODY"},{"d":"REPLACE TIE ROD END","r":0,"code":"TIE ROD"},{"d":"REPLACE TRANSMISSION FLUID","r":0,"code":"TRANS"},{"d":"REPLACE VALVE COVER GASKET","r":0,"code":"VLV GSK"},{"d":"REPLACE VAPOR/SOLENOID CANNISTER","r":0,"code":"VAP CAN"},{"d":"REPLACE WATER PUMP","r":0,"code":"H20 PUMP"},{"d":"REPLACE WHEEL BEARING/HUB","r":0,"code":"HUB"},{"d":"REPLACE WINDOW MOTOR","r":0,"code":"WIN REG"},{"d":"REPLACE STEERING GEAR","r":0,"code":"STR"}];
-const SETUP_SCRIPT = "/**\n * Mike Automotive \u2014 Shop Ledger sync backend.\n * Paste this into Extensions > Apps Script on a Google Sheet, then\n * deploy as a Web App (Execute as: Me, Who has access: Anyone).\n */\n\nvar SHEET_NAME = 'Invoices';\nvar LABOR_SHEET_NAME = 'LaborCodes';\nvar PURCHASE_SHEET_NAME = 'PartsPurchases';\n\n// FIELD_KEYS defines the real data order (used for reading/writing \u2014 never change the order).\n// COLUMN_LABELS is just what's displayed in row 1 \u2014 safe to edit for readability.\nvar FIELD_KEYS = ['id','job','c','v','d','l','p','pc','tx','pr','t',\n                   'phone','email','engine','color','vin','milesIn','milesOut','plate',\n                   'symptoms','dtc','work','advisory','groups','savedAt','isQuote','nextOilMiles','nextOilDate'];\nvar COLUMN_LABELS = ['ID','Job','Customer','Vehicle','Date','Labor ($)','Parts ($)','Parts Cost ($)',\n                      'Tax ($)','Profit ($)','Invoice Total ($)','Phone','Email','Engine','Color','VIN',\n                      'Miles In','Miles Out','License Plate','Symptoms / DTC Notes','DTC Codes',\n                      'Work Performed','Advisory Note','Job Groups (JSON)','Saved At','Is Quote','Next Oil Miles','Next Oil Date'];\n\nvar LABOR_FIELD_KEYS = ['id','d','r','addedAt'];\nvar LABOR_COLUMN_LABELS = ['ID','Job Description','Rate ($/hr)','Added At'];\n\nvar PURCHASE_FIELD_KEYS = ['id','date','source','part','amount','customer','vehicle','notes','addedAt'];\nvar PURCHASE_COLUMN_LABELS = ['ID','Date','Invoice # / Vendor','Part / Supplies','Amount ($)','Customer','Vehicle','Notes','Logged At'];\n\nfunction doGet(e) {\n  var type = (e.parameter && e.parameter.type) || 'invoices';\n  if (type === 'laborcodes') {\n    return jsonResponse_(readSheet_(getLaborSheet_(), LABOR_FIELD_KEYS));\n  }\n  if (type === 'purchases') {\n    return jsonResponse_(readSheet_(getPurchaseSheet_(), PURCHASE_FIELD_KEYS));\n  }\n  return jsonResponse_(readSheet_(getSheet_(), FIELD_KEYS));\n}\n\nfunction doPost(e) {\n  var payload = JSON.parse(e.postData.contents);\n  if (payload._type === 'delete') {\n    var sheetMap = { invoice: [getSheet_(), FIELD_KEYS], laborcode: [getLaborSheet_(), LABOR_FIELD_KEYS], purchase: [getPurchaseSheet_(), PURCHASE_FIELD_KEYS] };\n    var target = sheetMap[payload.targetType];\n    var deleted = target ? deleteRowById_(target[0], target[1], payload.id) : false;\n    return jsonResponse_({ ok: true, deleted: deleted });\n  }\n  if (payload._type === 'laborcode') {\n    upsertRow_(getLaborSheet_(), LABOR_FIELD_KEYS, payload);\n  } else if (payload._type === 'purchase') {\n    upsertRow_(getPurchaseSheet_(), PURCHASE_FIELD_KEYS, payload);\n  } else {\n    upsertRow_(getSheet_(), FIELD_KEYS, payload);\n  }\n  return jsonResponse_({ ok: true });\n}\n\nfunction deleteRowById_(sheet, fieldKeys, id) {\n  var idCol = fieldKeys.indexOf('id');\n  if (!id || idCol === -1) return false;\n  var data = sheet.getDataRange().getValues();\n  for (var r = 1; r < data.length; r++) {\n    if (String(data[r][idCol]) === String(id)) {\n      sheet.deleteRow(r + 1);\n      return true;\n    }\n  }\n  return false;\n}\n\n// Reads rows by fixed column POSITION (matching FIELD_KEYS), ignoring whatever\n// text is actually in row 1 \u2014 so you can freely rename headers for readability.\nfunction readSheet_(sheet, fieldKeys) {\n  var data = sheet.getDataRange().getValues();\n  if (data.length < 2) return [];\n  return data.slice(1).map(function(row) {\n    var obj = {};\n    fieldKeys.forEach(function(key, i) { obj[key] = row[i]; });\n    return obj;\n  });\n}\n\nfunction appendRow_(sheet, fieldKeys, payload) {\n  var row = fieldKeys.map(function(k) {\n    var v = payload[k];\n    if (v === undefined || v === null) return '';\n    return (typeof v === 'object') ? JSON.stringify(v) : v;\n  });\n  sheet.appendRow(row);\n}\n\n// Like appendRow_, but if a row with the same id already exists, it overwrites\n// that row in place instead of adding a duplicate \u2014 this is what makes editing\n// and re-saving an existing invoice/purchase/labor code actually update it.\nfunction upsertRow_(sheet, fieldKeys, payload) {\n  var row = fieldKeys.map(function(k) {\n    var v = payload[k];\n    if (v === undefined || v === null) return '';\n    return (typeof v === 'object') ? JSON.stringify(v) : v;\n  });\n\n  var idCol = fieldKeys.indexOf('id');\n  var id = payload.id;\n  if (id && idCol > -1) {\n    var data = sheet.getDataRange().getValues();\n    for (var r = 1; r < data.length; r++) {\n      if (String(data[r][idCol]) === String(id)) {\n        sheet.getRange(r + 1, 1, 1, row.length).setValues([row]);\n        return;\n      }\n    }\n  }\n  sheet.appendRow(row);\n}\n\nfunction getSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(COLUMN_LABELS);\n  return sheet;\n}\n\nfunction getLaborSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(LABOR_SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(LABOR_SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(LABOR_COLUMN_LABELS);\n  return sheet;\n}\n\nfunction getPurchaseSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(PURCHASE_SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(PURCHASE_SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(PURCHASE_COLUMN_LABELS);\n  return sheet;\n}\n\nfunction jsonResponse_(obj) {\n  return ContentService.createTextOutput(JSON.stringify(obj))\n    .setMimeType(ContentService.MimeType.JSON);\n}\n\n/**\n * One-time helper: run this manually (select \"relabelHeaders\" in the\n * function dropdown above, then click Run) if you already had data in\n * your sheet before this update, to fix your existing header row text.\n */\nfunction relabelHeaders() {\n  var invSheet = getSheet_();\n  invSheet.getRange(1, 1, 1, COLUMN_LABELS.length).setValues([COLUMN_LABELS]);\n  var laborSheet = getLaborSheet_();\n  laborSheet.getRange(1, 1, 1, LABOR_COLUMN_LABELS.length).setValues([LABOR_COLUMN_LABELS]);\n  var purchaseSheet = getPurchaseSheet_();\n  purchaseSheet.getRange(1, 1, 1, PURCHASE_COLUMN_LABELS.length).setValues([PURCHASE_COLUMN_LABELS]);\n}\n\n/**\n * One-time helper: run this manually (select \"seedLaborCodes\" in the\n * function dropdown above, then click Run) to populate the LaborCodes\n * tab with your original shop price list. Safe to re-run \u2014 it will\n * skip any description that already exists in the sheet.\n */\nvar SEED_LABOR_CODES = [\n  {d:'AIR CONDITION SERVICE', r:165.0},\n  {d:'AIR CONDITION SERVICE FRONT AND REAR', r:176.0},\n  {d:'AIR CONDITION SERVICE RYF 12 OZ', r:250.0},\n  {d:'AIR CONDITION SERVICE RFY 12 TO 24 OZ', r:300.0},\n  {d:'AIR CONDITION SRVICE RFY 24 TO 32 OZ', r:385.0},\n  {d:'Administration Fee', r:151.0},\n  {d:'ALIGNMENT', r:110.0},\n  {d:'ALIGNMENT/ COMPANY', r:135.0},\n  {d:'ALIGNMENT TRUCKS', r:150.0},\n  {d:'ALIGNMENT FOUR WHEEL', r:150.0},\n  {d:'SERVICE REAR BRAKE PADS AND TURN ROTORS', r:198.0},\n  {d:'SERVICE FRONT BRAKE PADS AND TURN ROTORS', r:198.0},\n  {d:'SERVICE FRONT BRAKE PADS AND REPLACE ROTORS', r:150.0},\n  {d:'SERVICE REAR BRAKE PADS AND REPLACE ROTORS', r:150.0},\n  {d:'SERVICE FRONT BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)', r:198.0},\n  {d:'SERVICE REAR BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)', r:198.0},\n  {d:'FRONT BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)', r:150.0},\n  {d:'REAR BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)', r:150.0},\n  {d:'SERVICE REAR BRAKE SHOES', r:110.0},\n  {d:'SERVICE REAR BRAKE SHOES AND TURN DRUM', r:150.0},\n  {d:'FRONT BRAKE PADS SERVCE ONLY', r:99.5},\n  {d:'REAR BRAKE PADS SERVCE ONLY', r:99.5},\n  {d:'FLUSH/BLEED BRAKE SYSTEM', r:99.5},\n  {d:'CHECK OUT SERVICE', r:61.0},\n  {d:'Diagnostics Fee', r:110.0},\n  {d:'Freight', r:0.0},\n  {d:'GAS', r:0.0},\n  {d:'FUEL INJECTION CLEAN', r:110.0},\n  {d:'Intelligence Power Distribution Module', r:0.0},\n  {d:'TOPCARFIXER1', r:99.5},\n  {d:'Standard Labor Rate', r:110.0},\n  {d:'TOPCARFIXER2', r:99.5},\n  {d:'LATE FEE', r:25.0},\n  {d:'OIL CHANGE AND ROTATE OVER \"18\" (BMW/AUDI/JAG)', r:155.0},\n  {d:'OIL CHANGE AND ROTATE UNDER \"18 (BMW/AUDI/JAG)', r:145.0},\n  {d:'OIL CHANGE AND ROTATE OVER \"18\"', r:85.0},\n  {d:'OIL CHANGE AND ROTATE UNDER \"18', r:70.0},\n  {d:'LUBE AND OIL FILTER', r:30.0},\n  {d:'OIL AND FILTER CHANGE /W SKID PLATE OR UNDER COVER', r:36.0},\n  {d:'OIL CHANGE W/ CUSTOMER PARTS', r:29.5},\n  {d:'OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER OVER 18\"', r:94.9},\n  {d:'OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER UNDER 18\"', r:80.4},\n  {d:'MISCELLANIES', r:75.0},\n  {d:'Computer Program', r:100.0},\n  {d:'MOUNT AND BALANCE OVER 18', r:39.0},\n  {d:'mount and balance CAR TIRE UNDER 18', r:34.0},\n  {d:'rotate and balance tires', r:65.0},\n  {d:'MOUNT TIRE ONLY', r:30.0},\n  {d:'ROTATE ONLY UNDER \"18\"', r:41.0},\n  {d:'ROTATE ONLY OVER\"18\"', r:58.0},\n  {d:'ROTATE AND BALANCE OVER\"18\"', r:76.0},\n  {d:'ROTOR TURN', r:21.0},\n  {d:'SHIPPING AND HANDLING', r:0.0},\n  {d:'TIRE DISPOSEL', r:3.0},\n  {d:'TOW OUT OF AREA', r:200.0},\n  {d:'TOW FEE CULP & SON', r:85.0},\n  {d:'TOW AFTER HOURS', r:125.0},\n  {d:'TIRE PLUG', r:25.0},\n  {d:'TIRE PATCH NO BALANCE', r:42.0},\n  {d:'TIRE PATCH W/ BALANCE', r:45.0},\n  {d:'TIRE PRESSURE MONITOR REPROGRAM', r:99.5},\n  {d:'REPLACE A/C COMPRESSOR', r:0},\n  {d:'REPLACE A/C CONDENSOR', r:0},\n  {d:'REPLACE AC RESISTOR', r:0},\n  {d:'REPLACE ALTERNATOR', r:0},\n  {d:'REPLACE BLEND DOOR ACTUATOR', r:0},\n  {d:'REPLACE BLOWER MOTOR', r:0},\n  {d:'REPLACE CABIN AIR FILTER', r:0},\n  {d:'REPLACE COOLANT TEMP SENSOR', r:0},\n  {d:'REPLACE DRIVE BELT', r:0},\n  {d:'REPLACE ENGINE MOTOR MOUNT', r:0},\n  {d:'REPLACE ENGINE TORQUE MOUNT', r:0},\n  {d:'REPLACE FRONT STRUTS SUSPENSION BOTH SIDES', r:0},\n  {d:'REPLACE FRONT STRUTS SUSPENSION ONE SIDES', r:0},\n  {d:'REPLACE HEADLIGHT BULBS', r:0},\n  {d:'REPLACE IGNITION COIL', r:0},\n  {d:'REPLACE MASS AIR FLOW SENSOR', r:0},\n  {d:'REPLACE MASTER BRAKE CYLINDER', r:0},\n  {d:'REPLACE OXYGEN SENSORS', r:0},\n  {d:'REPLACE PURGE VALVES', r:0},\n  {d:'REPLACE RADIATOR/HOSES', r:0},\n  {d:'REPLACE REAR SHOCKS', r:0},\n  {d:'REPLACE SPARK PLUG AND IGNITION COIL', r:0},\n  {d:'REPLACE SWAY BAR BUSHING', r:0},\n  {d:'REPLACE TAILGATE ACTUATOR', r:99.5},\n  {d:'REPLACE THROTTLE BODY', r:0},\n  {d:'REPLACE TIE ROD END', r:0},\n  {d:'REPLACE TRANSMISSION FLUID', r:0},\n  {d:'REPLACE VALVE COVER GASKET', r:0},\n  {d:'REPLACE VAPOR/SOLENOID CANNISTER', r:0},\n  {d:'REPLACE WATER PUMP', r:0},\n  {d:'REPLACE WHEEL BEARING/HUB', r:0},\n  {d:'REPLACE WINDOW MOTOR', r:0},\n  {d:'REPLACE STEERING GEAR', r:0}\n\n];\n\nfunction seedLaborCodes() {\n  var sheet = getLaborSheet_();\n  var existing = readSheet_(sheet, LABOR_FIELD_KEYS);\n  var existingDescs = {};\n  existing.forEach(function(row) {\n    if (row.d) existingDescs[String(row.d).trim().toLowerCase()] = true;\n  });\n  var added = 0;\n  SEED_LABOR_CODES.forEach(function(item) {\n    var key = item.d.trim().toLowerCase();\n    if (!existingDescs[key]) {\n      appendRow_(sheet, LABOR_FIELD_KEYS, {\n        id: Utilities.getUuid(),\n        d: item.d,\n        r: item.r,\n        addedAt: new Date().toISOString()\n      });\n      existingDescs[key] = true;\n      added++;\n    }\n  });\n  Logger.log('Added ' + added + ' labor codes.');\n}\n";
+const SETUP_SCRIPT = "/**\n * Mike Automotive \u2014 Shop Ledger sync backend.\n * Paste this into Extensions > Apps Script on a Google Sheet, then\n * deploy as a Web App (Execute as: Me, Who has access: Anyone).\n */\n\n// ACCESS KEY: the app sends this with every request; requests without it are refused.\n// Type the same key into the app once on each device. Leave '' to turn the check off.\nvar ACCESS_KEY = 'CHANGE-ME-TO-A-LONG-RANDOM-PASSWORD';\n\nvar SHEET_NAME = 'Invoices';\nvar LABOR_SHEET_NAME = 'LaborCodes';\nvar PURCHASE_SHEET_NAME = 'PartsPurchases';\n\n// FIELD_KEYS defines the real data order (used for reading/writing \u2014 never change the order).\n// COLUMN_LABELS is just what's displayed in row 1 \u2014 safe to edit for readability.\nvar FIELD_KEYS = ['id','job','c','v','d','l','p','pc','tx','pr','t',\n                   'phone','email','engine','color','vin','milesIn','milesOut','plate',\n                   'symptoms','dtc','work','advisory','groups','savedAt','isQuote','nextOilMiles','nextOilDate',\n                   'paid','paidDate','payMethod','sp','txr','savedBy'];\nvar COLUMN_LABELS = ['ID','Job','Customer','Vehicle','Date','Labor ($)','Parts ($)','Parts Cost ($)',\n                      'Tax ($)','Profit ($)','Invoice Total ($)','Phone','Email','Engine','Color','VIN',\n                      'Miles In','Miles Out','License Plate','Symptoms / DTC Notes','DTC Codes',\n                      'Work Performed','Advisory Note','Job Groups (JSON)','Saved At','Is Quote','Next Oil Miles','Next Oil Date',\n                      'Paid','Paid Date','Payment Method','Shop Supplies ($)','Tax Rate (%)','Saved By'];\n\nvar LABOR_FIELD_KEYS = ['id','d','r','addedAt'];\nvar LABOR_COLUMN_LABELS = ['ID','Job Description','Rate ($/hr)','Added At'];\n\nvar PURCHASE_FIELD_KEYS = ['id','date','source','part','amount','customer','vehicle','notes','addedAt'];\nvar PURCHASE_COLUMN_LABELS = ['ID','Date','Invoice # / Vendor','Part / Supplies','Amount ($)','Customer','Vehicle','Notes','Logged At'];\n\nfunction denied_() {\n  return jsonResponse_({ error: 'denied' });\n}\n\nfunction keyOk_(supplied) {\n  return !ACCESS_KEY || String(supplied || '') === ACCESS_KEY;\n}\n\nfunction doGet(e) {\n  if (!keyOk_(e && e.parameter && e.parameter.key)) return denied_();\n  var type = (e.parameter && e.parameter.type) || 'invoices';\n  if (type === 'laborcodes') {\n    return jsonResponse_(readSheet_(getLaborSheet_(), LABOR_FIELD_KEYS));\n  }\n  if (type === 'purchases') {\n    return jsonResponse_(readSheet_(getPurchaseSheet_(), PURCHASE_FIELD_KEYS));\n  }\n  return jsonResponse_(readSheet_(getSheet_(), FIELD_KEYS));\n}\n\nfunction doPost(e) {\n  var payload = JSON.parse(e.postData.contents);\n  if (!keyOk_(payload._key)) return denied_();\n  if (payload._type === 'delete') {\n    var sheetMap = { invoice: [getSheet_(), FIELD_KEYS], laborcode: [getLaborSheet_(), LABOR_FIELD_KEYS], purchase: [getPurchaseSheet_(), PURCHASE_FIELD_KEYS] };\n    var target = sheetMap[payload.targetType];\n    var deleted = target ? deleteRowById_(target[0], target[1], payload.id) : false;\n    return jsonResponse_({ ok: true, deleted: deleted });\n  }\n  if (payload._type === 'laborcode') {\n    upsertRow_(getLaborSheet_(), LABOR_FIELD_KEYS, payload);\n  } else if (payload._type === 'purchase') {\n    upsertRow_(getPurchaseSheet_(), PURCHASE_FIELD_KEYS, payload);\n  } else {\n    upsertRow_(getSheet_(), FIELD_KEYS, payload);\n  }\n  return jsonResponse_({ ok: true });\n}\n\nfunction deleteRowById_(sheet, fieldKeys, id) {\n  var idCol = fieldKeys.indexOf('id');\n  if (!id || idCol === -1) return false;\n  var data = sheet.getDataRange().getValues();\n  for (var r = 1; r < data.length; r++) {\n    if (String(data[r][idCol]) === String(id)) {\n      sheet.deleteRow(r + 1);\n      return true;\n    }\n  }\n  return false;\n}\n\n// Reads rows by fixed column POSITION (matching FIELD_KEYS), ignoring whatever\n// text is actually in row 1 \u2014 so you can freely rename headers for readability.\nfunction readSheet_(sheet, fieldKeys) {\n  var data = sheet.getDataRange().getValues();\n  if (data.length < 2) return [];\n  return data.slice(1).map(function(row) {\n    var obj = {};\n    fieldKeys.forEach(function(key, i) { obj[key] = row[i]; });\n    return obj;\n  });\n}\n\nfunction appendRow_(sheet, fieldKeys, payload) {\n  var row = fieldKeys.map(function(k) {\n    var v = payload[k];\n    if (v === undefined || v === null) return '';\n    return (typeof v === 'object') ? JSON.stringify(v) : v;\n  });\n  sheet.appendRow(row);\n}\n\n// Like appendRow_, but if a row with the same id already exists, it overwrites\n// that row in place instead of adding a duplicate \u2014 this is what makes editing\n// and re-saving an existing invoice/purchase/labor code actually update it.\nfunction upsertRow_(sheet, fieldKeys, payload) {\n  var row = fieldKeys.map(function(k) {\n    var v = payload[k];\n    if (v === undefined || v === null) return '';\n    return (typeof v === 'object') ? JSON.stringify(v) : v;\n  });\n\n  var idCol = fieldKeys.indexOf('id');\n  var id = payload.id;\n  if (id && idCol > -1) {\n    var data = sheet.getDataRange().getValues();\n    for (var r = 1; r < data.length; r++) {\n      if (String(data[r][idCol]) === String(id)) {\n        sheet.getRange(r + 1, 1, 1, row.length).setValues([row]);\n        return;\n      }\n    }\n  }\n  sheet.appendRow(row);\n}\n\nfunction getSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(COLUMN_LABELS);\n  return sheet;\n}\n\nfunction getLaborSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(LABOR_SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(LABOR_SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(LABOR_COLUMN_LABELS);\n  return sheet;\n}\n\nfunction getPurchaseSheet_() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var sheet = ss.getSheetByName(PURCHASE_SHEET_NAME);\n  if (!sheet) sheet = ss.insertSheet(PURCHASE_SHEET_NAME);\n  if (sheet.getLastRow() === 0) sheet.appendRow(PURCHASE_COLUMN_LABELS);\n  return sheet;\n}\n\nfunction jsonResponse_(obj) {\n  return ContentService.createTextOutput(JSON.stringify(obj))\n    .setMimeType(ContentService.MimeType.JSON);\n}\n\n/**\n * One-time helper: run this manually (select \"relabelHeaders\" in the\n * function dropdown above, then click Run) if you already had data in\n * your sheet before this update, to fix your existing header row text.\n */\nfunction relabelHeaders() {\n  var invSheet = getSheet_();\n  invSheet.getRange(1, 1, 1, COLUMN_LABELS.length).setValues([COLUMN_LABELS]);\n  var laborSheet = getLaborSheet_();\n  laborSheet.getRange(1, 1, 1, LABOR_COLUMN_LABELS.length).setValues([LABOR_COLUMN_LABELS]);\n  var purchaseSheet = getPurchaseSheet_();\n  purchaseSheet.getRange(1, 1, 1, PURCHASE_COLUMN_LABELS.length).setValues([PURCHASE_COLUMN_LABELS]);\n}\n\n/**\n * One-time helper: run this manually (select \"seedLaborCodes\" in the\n * function dropdown above, then click Run) to populate the LaborCodes\n * tab with your original shop price list. Safe to re-run \u2014 it will\n * skip any description that already exists in the sheet.\n */\nvar SEED_LABOR_CODES = [\n  {d:'AIR CONDITION SERVICE', r:165.0},\n  {d:'AIR CONDITION SERVICE FRONT AND REAR', r:176.0},\n  {d:'AIR CONDITION SERVICE RYF 12 OZ', r:250.0},\n  {d:'AIR CONDITION SERVICE RFY 12 TO 24 OZ', r:300.0},\n  {d:'AIR CONDITION SRVICE RFY 24 TO 32 OZ', r:385.0},\n  {d:'Administration Fee', r:151.0},\n  {d:'ALIGNMENT', r:110.0},\n  {d:'ALIGNMENT/ COMPANY', r:135.0},\n  {d:'ALIGNMENT TRUCKS', r:150.0},\n  {d:'ALIGNMENT FOUR WHEEL', r:150.0},\n  {d:'SERVICE REAR BRAKE PADS AND TURN ROTORS', r:198.0},\n  {d:'SERVICE FRONT BRAKE PADS AND TURN ROTORS', r:198.0},\n  {d:'SERVICE FRONT BRAKE PADS AND REPLACE ROTORS', r:150.0},\n  {d:'SERVICE REAR BRAKE PADS AND REPLACE ROTORS', r:150.0},\n  {d:'SERVICE FRONT BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)', r:198.0},\n  {d:'SERVICE REAR BRAKE PADS AND ROTOR (CUSTOMER PROVIDE PARTS)', r:198.0},\n  {d:'FRONT BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)', r:150.0},\n  {d:'REAR BRAKE PADS SERVICE (CUSTOMER PROVIDE PARTS)', r:150.0},\n  {d:'SERVICE REAR BRAKE SHOES', r:110.0},\n  {d:'SERVICE REAR BRAKE SHOES AND TURN DRUM', r:150.0},\n  {d:'FRONT BRAKE PADS SERVCE ONLY', r:99.5},\n  {d:'REAR BRAKE PADS SERVCE ONLY', r:99.5},\n  {d:'FLUSH/BLEED BRAKE SYSTEM', r:99.5},\n  {d:'CHECK OUT SERVICE', r:61.0},\n  {d:'Diagnostics Fee', r:110.0},\n  {d:'Freight', r:0.0},\n  {d:'GAS', r:0.0},\n  {d:'FUEL INJECTION CLEAN', r:110.0},\n  {d:'Intelligence Power Distribution Module', r:0.0},\n  {d:'TOPCARFIXER1', r:99.5},\n  {d:'Standard Labor Rate', r:110.0},\n  {d:'TOPCARFIXER2', r:99.5},\n  {d:'LATE FEE', r:25.0},\n  {d:'OIL CHANGE AND ROTATE OVER \"18\" (BMW/AUDI/JAG)', r:155.0},\n  {d:'OIL CHANGE AND ROTATE UNDER \"18 (BMW/AUDI/JAG)', r:145.0},\n  {d:'OIL CHANGE AND ROTATE OVER \"18\"', r:85.0},\n  {d:'OIL CHANGE AND ROTATE UNDER \"18', r:70.0},\n  {d:'LUBE AND OIL FILTER', r:30.0},\n  {d:'OIL AND FILTER CHANGE /W SKID PLATE OR UNDER COVER', r:36.0},\n  {d:'OIL CHANGE W/ CUSTOMER PARTS', r:29.5},\n  {d:'OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER OVER 18\"', r:94.9},\n  {d:'OIL AND FILTER CHANGE/W SKID PLATE OR UNDER COVER UNDER 18\"', r:80.4},\n  {d:'MISCELLANIES', r:75.0},\n  {d:'Computer Program', r:100.0},\n  {d:'MOUNT AND BALANCE OVER 18', r:39.0},\n  {d:'mount and balance CAR TIRE UNDER 18', r:34.0},\n  {d:'rotate and balance tires', r:65.0},\n  {d:'MOUNT TIRE ONLY', r:30.0},\n  {d:'ROTATE ONLY UNDER \"18\"', r:41.0},\n  {d:'ROTATE ONLY OVER\"18\"', r:58.0},\n  {d:'ROTATE AND BALANCE OVER\"18\"', r:76.0},\n  {d:'ROTOR TURN', r:21.0},\n  {d:'SHIPPING AND HANDLING', r:0.0},\n  {d:'TIRE DISPOSEL', r:3.0},\n  {d:'TOW OUT OF AREA', r:200.0},\n  {d:'TOW FEE CULP & SON', r:85.0},\n  {d:'TOW AFTER HOURS', r:125.0},\n  {d:'TIRE PLUG', r:25.0},\n  {d:'TIRE PATCH NO BALANCE', r:42.0},\n  {d:'TIRE PATCH W/ BALANCE', r:45.0},\n  {d:'TIRE PRESSURE MONITOR REPROGRAM', r:99.5},\n  {d:'REPLACE A/C COMPRESSOR', r:0},\n  {d:'REPLACE A/C CONDENSOR', r:0},\n  {d:'REPLACE AC RESISTOR', r:0},\n  {d:'REPLACE ALTERNATOR', r:0},\n  {d:'REPLACE BLEND DOOR ACTUATOR', r:0},\n  {d:'REPLACE BLOWER MOTOR', r:0},\n  {d:'REPLACE CABIN AIR FILTER', r:0},\n  {d:'REPLACE COOLANT TEMP SENSOR', r:0},\n  {d:'REPLACE DRIVE BELT', r:0},\n  {d:'REPLACE ENGINE MOTOR MOUNT', r:0},\n  {d:'REPLACE ENGINE TORQUE MOUNT', r:0},\n  {d:'REPLACE FRONT STRUTS SUSPENSION BOTH SIDES', r:0},\n  {d:'REPLACE FRONT STRUTS SUSPENSION ONE SIDES', r:0},\n  {d:'REPLACE HEADLIGHT BULBS', r:0},\n  {d:'REPLACE IGNITION COIL', r:0},\n  {d:'REPLACE MASS AIR FLOW SENSOR', r:0},\n  {d:'REPLACE MASTER BRAKE CYLINDER', r:0},\n  {d:'REPLACE OXYGEN SENSORS', r:0},\n  {d:'REPLACE PURGE VALVES', r:0},\n  {d:'REPLACE RADIATOR/HOSES', r:0},\n  {d:'REPLACE REAR SHOCKS', r:0},\n  {d:'REPLACE SPARK PLUG AND IGNITION COIL', r:0},\n  {d:'REPLACE SWAY BAR BUSHING', r:0},\n  {d:'REPLACE TAILGATE ACTUATOR', r:99.5},\n  {d:'REPLACE THROTTLE BODY', r:0},\n  {d:'REPLACE TIE ROD END', r:0},\n  {d:'REPLACE TRANSMISSION FLUID', r:0},\n  {d:'REPLACE VALVE COVER GASKET', r:0},\n  {d:'REPLACE VAPOR/SOLENOID CANNISTER', r:0},\n  {d:'REPLACE WATER PUMP', r:0},\n  {d:'REPLACE WHEEL BEARING/HUB', r:0},\n  {d:'REPLACE WINDOW MOTOR', r:0},\n  {d:'REPLACE STEERING GEAR', r:0}\n\n];\n\nfunction seedLaborCodes() {\n  var sheet = getLaborSheet_();\n  var existing = readSheet_(sheet, LABOR_FIELD_KEYS);\n  var existingDescs = {};\n  existing.forEach(function(row) {\n    if (row.d) existingDescs[String(row.d).trim().toLowerCase()] = true;\n  });\n  var added = 0;\n  SEED_LABOR_CODES.forEach(function(item) {\n    var key = item.d.trim().toLowerCase();\n    if (!existingDescs[key]) {\n      appendRow_(sheet, LABOR_FIELD_KEYS, {\n        id: Utilities.getUuid(),\n        d: item.d,\n        r: item.r,\n        addedAt: new Date().toISOString()\n      });\n      existingDescs[key] = true;\n      added++;\n    }\n  });\n  Logger.log('Added ' + added + ' labor codes.');\n}\n\n\n/**\n * AUTOMATIC MONTHLY BACKUP\n * Run installMonthlyBackup ONCE (pick it in the function dropdown, click Run,\n * approve the Google permission prompt). After that, on the 1st of every month\n * a copy of this whole spreadsheet is saved into a \"Mike Automotive Backups\"\n * folder in your Google Drive. The newest 12 copies are kept.\n */\nfunction installMonthlyBackup() {\n  ScriptApp.getProjectTriggers().forEach(function(t) {\n    if (t.getHandlerFunction() === 'monthlyBackup') ScriptApp.deleteTrigger(t);\n  });\n  ScriptApp.newTrigger('monthlyBackup').timeBased().onMonthDay(1).atHour(3).create();\n  monthlyBackup(); // make the first copy right now\n}\n\nfunction monthlyBackup() {\n  var ss = SpreadsheetApp.getActiveSpreadsheet();\n  var folderName = 'Mike Automotive Backups';\n  var folders = DriveApp.getFoldersByName(folderName);\n  var folder = folders.hasNext() ? folders.next() : DriveApp.createFolder(folderName);\n  var stamp = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');\n  DriveApp.getFileById(ss.getId()).makeCopy('Shop Ledger backup ' + stamp, folder);\n\n  var files = [];\n  var it = folder.getFiles();\n  while (it.hasNext()) files.push(it.next());\n  files.sort(function(a, b) { return b.getDateCreated() - a.getDateCreated(); });\n  files.slice(12).forEach(function(f) { f.setTrashed(true); });\n}\n";
 
 // ---------- PIN lock (keeps out casual/curious people — not real security,
 // since anyone who views this page's source can find the PIN or bypass it) ----------
@@ -684,6 +822,7 @@ function lockApp(){
 async function unlockApp(){
   document.body.classList.remove('locked');
   try{ await appStorage.set('config:pinUnlocked', 'true', false); }catch(e){}
+  if(accessDenied){ showAccessPrompt(); }
 }
 async function checkPinUnlockState(){
   try{
@@ -702,7 +841,11 @@ document.getElementById('pinUnlockBtn').addEventListener('click', async ()=>{
   if(input.value.trim() === APP_PIN){
     errorEl.textContent = '';
     input.value = '';
+    const kEl = document.getElementById('pinKeyInput');
+    let newKey = false;
+    if(kEl && kEl.value.trim()){ await saveAccessKey(kEl.value.trim()); kEl.value = ''; newKey = true; }
     await unlockApp();
+    if(newKey) syncNow();
   } else {
     errorEl.textContent = 'Incorrect PIN.';
     input.value = '';
@@ -718,6 +861,91 @@ document.getElementById('lockAppBtn').addEventListener('click', async ()=>{
 });
 
 checkPinUnlockState();
+
+
+// ---------- v3 helpers ----------
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function isUnpaid(j){ return !!j && !j.isQuote && (j.paid === false || String(j.paid).toLowerCase() === 'false'); }
+function isPaidTrue(j){ return !!j && !j.isQuote && (j.paid === true || String(j.paid).toLowerCase() === 'true'); }
+function suppliesOf(j){
+  if(j.sp !== undefined && j.sp !== null && j.sp !== '' && !isNaN(Number(j.sp))) return Number(j.sp);
+  const inferred = Number(((Number(j.t)||0) - (Number(j.l)||0) - (Number(j.p)||0) - (Number(j.tx)||0)).toFixed(2));
+  return (inferred > 0.005 && inferred <= 40) ? inferred : 0;
+}
+function payInfoOf(j){
+  if(!isPaidTrue(j)) return '';
+  return 'PAID' + (j.payMethod ? (' — ' + j.payMethod) : '') + (j.paidDate ? (' — ' + fmtDate(j.paidDate)) : '');
+}
+function ymOf(d){
+  const m = String(d||'').match(/^(\d{4})-(\d{2})/);
+  if(m) return m[1] + '-' + m[2];
+  const dt = new Date(d);
+  if(isNaN(dt.getTime())) return '';
+  return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0');
+}
+function dayNum(d){
+  const m = String(d||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m) return Date.UTC(Number(m[1]), Number(m[2])-1, Number(m[3])) / 864e5;
+  const t = Date.parse(d);
+  return isNaN(t) ? NaN : Math.floor(t / 864e5);
+}
+function monthLabel(ym){
+  const parts = ym.split('-');
+  return new Date(Number(parts[0]), Number(parts[1])-1, 1).toLocaleDateString('en-US', {month:'long', year:'numeric'});
+}
+function guessDeviceName(){
+  const ua = navigator.userAgent || '';
+  const br = /Edg\//.test(ua) ? 'Edge' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'Browser';
+  const os = /Windows/.test(ua) ? 'Windows' : /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : /Mac OS/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : '';
+  return br + (os ? (' on ' + os) : '');
+}
+
+async function readConfig(key){
+  try{
+    const r = await appStorage.get(key, false);
+    return (r && r.value !== undefined) ? r.value : null;
+  }catch(e){ return null; }
+}
+async function writeConfig(key, value){
+  try{ await appStorage.set(key, value, false); }catch(e){ console.warn('config save failed', e); }
+}
+
+function refreshPinKeyField(){
+  const el = document.getElementById('pinKeyInput');
+  if(el) el.style.display = accessKey ? 'none' : 'block';
+}
+
+async function loadAppConfig(){
+  accessKey = (await readConfig('config:accessKey')) || '';
+  deviceName = (await readConfig('config:deviceName')) || guessDeviceName();
+  const pn = await readConfig('config:printNote');
+  if(pn !== null) printNote = pn;
+  lastBackupAt = (await readConfig('config:lastBackup')) || '';
+  refreshPinKeyField();
+  const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = v; };
+  set('accessKeyInput', accessKey);
+  set('deviceNameInput', deviceName);
+  set('printNoteInput', printNote);
+  renderBackupReminder();
+}
+
+async function saveAccessKey(k){
+  accessKey = (k || '').trim();
+  await writeConfig('config:accessKey', accessKey);
+  accessDenied = false;
+  refreshPinKeyField();
+  const el = document.getElementById('accessKeyInput'); if(el) el.value = accessKey;
+}
+
+function showAccessPrompt(){
+  if(document.body.classList.contains('locked')) return;   // PIN screen handles it after unlock
+  document.getElementById('accessModalMsg').textContent = accessKey ? 'That key was not accepted. Check it and try again.' : '';
+  document.getElementById('accessModalOverlay').classList.add('active');
+  const inp = document.getElementById('accessModalInput'); if(inp){ inp.value = ''; setTimeout(()=>inp.focus && inp.focus(), 50); }
+}
 
 const LABOR_LOOKUP = {};
 LABOR_CODES.forEach(it => { LABOR_LOOKUP[it.d.trim().toLowerCase()] = it.r; });
@@ -756,6 +984,8 @@ let sheetUrl = null;
 let jobGroups = [];
 let docType = 'invoice';
 let currentEditingId = null;
+let loadedSavedAt = null, loadedWasQuote = false, formDirty = false, lastSyncAt = 0, lastBackupAt = '';
+let accessKey = '', accessDenied = false, deviceName = '', printNote = 'Thank you for your business!';
 let dtcCodes = [];
 let liId = 0;
 
@@ -965,60 +1195,167 @@ function parseSheetRow(row){
     }
   });
   ['l','p','pc','tx','pr','t'].forEach(k=>{ job[k] = Number(job[k])||0; });
+  // paid: blank (older records) stays undefined so they count as already paid
+  if(job.paid === true || String(job.paid).toLowerCase() === 'true') job.paid = true;
+  else if(job.paid === false || String(job.paid).toLowerCase() === 'false') job.paid = false;
+  else delete job.paid;
+  ['sp','txr'].forEach(k=>{ if(job[k] === '' || job[k] === null || job[k] === undefined || isNaN(Number(job[k]))) delete job[k]; else job[k] = Number(job[k]); });
+  ['paidDate','payMethod','savedBy'].forEach(k=>{ if(job[k] === '' || job[k] === undefined) delete job[k]; });
   job.custom = true;
   return ensureStableId(job, INVOICE_ID_FIELDS);
 }
 
 function mergeById(localArr, remoteArr, fields){
-  // Sheet data wins for any id it has (it may reflect edits made elsewhere);
-  // local-only ids (not yet pushed) are preserved rather than wiped out.
+  // Sheet data wins for any id it has (it may reflect edits made elsewhere) —
+  // EXCEPT records still waiting to sync from this device (_unsynced), which
+  // are kept so a newer local edit is never overwritten by an older sheet row.
+  // Local-only ids (not yet pushed) are preserved rather than wiped out.
   const byId = new Map();
   const keyOf = item => ensureStableId(item, fields).id;
   localArr.forEach(item=>{ if(item) byId.set(keyOf(item), item); });
-  remoteArr.forEach(item=>{ if(item) byId.set(keyOf(item), item); });
+  remoteArr.forEach(item=>{
+    if(!item) return;
+    const k = keyOf(item);
+    const cur = byId.get(k);
+    if(cur && cur._unsynced) return;
+    byId.set(k, item);
+  });
   return Array.from(byId.values());
 }
 
-async function pullFromSheet(showStatus){
-  if(!sheetUrl){ if(showStatus) setSyncStatus('Not connected', true); return; }
-  if(showStatus) setSyncStatus('Pulling latest…');
+function stripLocal(obj){
+  const o = Object.assign({}, obj);
+  delete o._unsynced;
+  return o;
+}
+
+// One place for every request to the Google Sheet. Adds the access key and
+// recognises a "denied" answer so the app can ask for the key.
+async function sheetRequest(method, opts){
+  opts = opts || {};
+  if(!sheetUrl) return {ok:false, offline:true};
   try{
-    const res = await fetch(sheetUrl, {method:'GET'});
+    let res;
+    if(method === 'GET'){
+      const params = [];
+      if(opts.type) params.push('type=' + encodeURIComponent(opts.type));
+      if(accessKey) params.push('key=' + encodeURIComponent(accessKey));
+      const url = sheetUrl + (params.length ? ((sheetUrl.includes('?') ? '&' : '?') + params.join('&')) : '');
+      res = await fetch(url, {method:'GET'});
+    } else {
+      const body = Object.assign({}, opts.payload);
+      if(accessKey) body._key = accessKey;
+      res = await fetch(sheetUrl, {method:'POST', body: JSON.stringify(body)});
+    }
     if(!res.ok) throw new Error('HTTP ' + res.status);
-    const rows = await res.json();
-    customInvoices = mergeById(customInvoices, rows.map(parseSheetRow), INVOICE_ID_FIELDS);
-    rebuildAllJobs();
-    renderDashboard();
-    setSyncStatus('Connected — synced ' + new Date().toLocaleTimeString());
+    let data = null;
+    try{ data = await res.json(); }catch(e){ data = null; }
+    if(data && !Array.isArray(data) && data.error === 'denied'){
+      accessDenied = true;
+      showAccessPrompt();
+      return {ok:false, denied:true};
+    }
+    accessDenied = false;
+    return {ok:true, data};
   }catch(e){
-    console.error('pull from sheet failed', e);
-    setSyncStatus('Could not reach the Sheet — check the URL and deployment access.', true);
+    console.warn('sheet request failed', e);
+    return {ok:false, error:e};
   }
+}
+
+async function pullFromSheet(showStatus){
+  if(!sheetUrl){ if(showStatus) setSyncStatus('Not connected', true); return false; }
+  if(showStatus) setSyncStatus('Pulling latest…');
+  const r = await sheetRequest('GET');
+  if(!r.ok || !Array.isArray(r.data)){
+    setSyncStatus(r.denied ? 'Access key needed — enter it under Advanced.' : 'Could not reach the Sheet — check the URL and deployment access.', true);
+    return false;
+  }
+  customInvoices = mergeById(customInvoices, r.data.map(parseSheetRow), INVOICE_ID_FIELDS);
+  rebuildAllJobs();
+  renderDashboard();
+  refreshAllViews();
+  lastSyncAt = Date.now();
+  setSyncStatus('Connected — synced ' + new Date().toLocaleTimeString());
+  return true;
 }
 
 async function pushToSheet(job){
-  if(!sheetUrl) return false;
-  try{
-    const res = await fetch(sheetUrl, {method:'POST', body: JSON.stringify(job)});
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    return true;
-  }catch(e){
-    console.error('push to sheet failed', e);
-    return false;
-  }
+  const r = await sheetRequest('POST', {payload: stripLocal(job)});
+  return r.ok;
 }
 
 async function deleteFromSheet(targetType, id){
-  if(!sheetUrl) return false;
+  const r = await sheetRequest('POST', {payload: {_type:'delete', targetType, id}});
+  return r.ok;
+}
+
+// ---------- Pending-sync queue ----------
+async function persistRecord(prefix, item){
   try{
-    const res = await fetch(sheetUrl, {method:'POST', body: JSON.stringify({_type:'delete', targetType, id})});
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    return true;
-  }catch(e){
-    console.error('delete from sheet failed', e);
-    return false;
+    if(typeof appStorage !== 'undefined') await appStorage.set(prefix + item.id, JSON.stringify(item), false);
+  }catch(e){ console.warn('persist failed', e); }
+}
+
+function unsyncedCount(){
+  return customInvoices.filter(x=>x._unsynced).length
+       + purchases.filter(x=>x._unsynced).length
+       + customLaborCodes.filter(x=>x._unsynced).length;
+}
+
+function updateSyncBadge(){
+  const n = unsyncedCount();
+  const pill = document.getElementById('unsyncedPill');
+  if(!pill) return;
+  pill.textContent = '⚠ ' + n + ' not synced — tap to retry';
+  pill.classList.toggle('show', n > 0);
+}
+
+async function pushPending(){
+  if(!sheetUrl) return;
+  const groups = [
+    [customInvoices, 'invoice:', pushToSheet],
+    [purchases, 'purchase:', pushPurchaseToSheet],
+    [customLaborCodes, 'laborcode:', pushLaborCodeToSheet]
+  ];
+  for(const g of groups){
+    const arr = g[0].filter(x=>x._unsynced);
+    for(const item of arr){
+      const ok = await g[2](item);
+      if(!ok){ updateSyncBadge(); return; }       // offline or denied — stop and keep the rest queued
+      delete item._unsynced;
+      await persistRecord(g[1], item);
+    }
+  }
+  updateSyncBadge();
+}
+
+let syncing = false;
+async function syncNow(){
+  if(syncing || !sheetUrl) return;
+  syncing = true;
+  try{
+    setSyncStatus('Syncing…');
+    await pushPending();
+    const ok = await pullFromSheet(true);
+    if(ok){
+      await pullLaborCodesFromSheet();
+      await pullPurchasesFromSheet();
+      await pushPending();
+    }
+  }finally{
+    syncing = false;
+    updateSyncBadge();
+    refreshAllViews();
   }
 }
+
+window.addEventListener('online', ()=>{ syncNow(); });
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible' && sheetUrl && !document.body.classList.contains('locked') && (Date.now() - lastSyncAt > 60000)){
+    syncNow();
+  }
+});
 
 async function autoRemoveDuplicates(items, keyFields, storagePrefix, targetType){
   const groups = {};
@@ -1058,9 +1395,32 @@ document.getElementById('connectSheetBtn').addEventListener('click', async ()=>{
   const url = document.getElementById('sheetUrlInput').value.trim();
   if(!url){ setSyncStatus('Paste your Web App URL first.', true); return; }
   await saveSheetUrl(url);
-  await pullFromSheet(true);
+  await syncNow();
 });
-document.getElementById('pullSheetBtn').addEventListener('click', ()=> pullFromSheet(true));
+document.getElementById('pullSheetBtn').addEventListener('click', ()=> syncNow());
+document.getElementById('unsyncedPill').addEventListener('click', ()=> syncNow());
+document.getElementById('saveSettingsBtn').addEventListener('click', async ()=>{
+  const keyVal = document.getElementById('accessKeyInput').value.trim();
+  const dn = document.getElementById('deviceNameInput').value.trim() || guessDeviceName();
+  const pn = document.getElementById('printNoteInput').value;
+  deviceName = dn; printNote = pn;
+  await writeConfig('config:deviceName', dn);
+  await writeConfig('config:printNote', pn);
+  await saveAccessKey(keyVal);
+  const st = document.getElementById('settingsStatus');
+  st.textContent = '✓ Saved';
+  setTimeout(()=>{ st.textContent=''; }, 3000);
+  syncNow();
+});
+document.getElementById('accessModalSave').addEventListener('click', async ()=>{
+  const v = document.getElementById('accessModalInput').value.trim();
+  if(!v){ document.getElementById('accessModalMsg').textContent = 'Enter the key first.'; return; }
+  await saveAccessKey(v);
+  document.getElementById('accessModalOverlay').classList.remove('active');
+  syncNow();
+});
+document.getElementById('accessModalInput').addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('accessModalSave').click(); } });
+document.getElementById('accessModalClose').addEventListener('click', ()=> document.getElementById('accessModalOverlay').classList.remove('active'));
 document.getElementById('syncAdvancedToggle').addEventListener('click', ()=>{
   const panel = document.getElementById('syncAdvancedPanel');
   const isOpen = panel.style.display !== 'none';
@@ -1156,22 +1516,16 @@ async function loadPurchases(){
 
 async function pullPurchasesFromSheet(){
   if(!sheetUrl) return;
-  try{
-    const res = await fetch(sheetUrl + (sheetUrl.includes('?') ? '&' : '?') + 'type=purchases', {method:'GET'});
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const rows = await res.json();
-    const remote = rows.map(r => Object.assign({}, r, { amount: Number(r.amount)||0 }));
-    purchases = mergeById(purchases, remote, PURCHASE_ID_FIELDS);
-    renderPurchases();
-  }catch(e){ console.warn('pull purchases failed', e); }
+  const r = await sheetRequest('GET', {type:'purchases'});
+  if(!r.ok || !Array.isArray(r.data)) return;
+  const remote = r.data.map(x => Object.assign({}, x, { amount: Number(x.amount)||0 }));
+  purchases = mergeById(purchases, remote, PURCHASE_ID_FIELDS);
+  renderPurchases();
 }
 
 async function pushPurchaseToSheet(p){
-  if(!sheetUrl) return false;
-  try{
-    const res = await fetch(sheetUrl, {method:'POST', body: JSON.stringify(Object.assign({_type:'purchase'}, p))});
-    return res.ok;
-  }catch(e){ console.warn('push purchase failed', e); return false; }
+  const r = await sheetRequest('POST', {payload: Object.assign({_type:'purchase'}, stripLocal(p))});
+  return r.ok;
 }
 
 async function logPartsAsPurchases(job){
@@ -1203,7 +1557,7 @@ async function logPartsAsPurchases(job){
       }
       purchases.push(p);
     }catch(e){ console.error('auto-log purchase failed', e); continue; }
-    if(sheetUrl){ await pushPurchaseToSheet(p); }
+    if(sheetUrl){ const okP = await pushPurchaseToSheet(p); if(!okP){ p._unsynced = true; await persistRecord('purchase:', p); } }
   }
   renderPurchases();
 }
@@ -1284,7 +1638,7 @@ document.getElementById('savePurchaseBtn').addEventListener('click', async ()=>{
   }catch(e){ console.error('save purchase failed', e); }
 
   let sheetOk = false;
-  if(sheetUrl){ sheetOk = await pushPurchaseToSheet(p); }
+  if(sheetUrl){ sheetOk = await pushPurchaseToSheet(p); if(!sheetOk){ p._unsynced = true; await persistRecord('purchase:', p); } }
 
   if(localOk){
     purchases.push(p);
@@ -1383,22 +1737,16 @@ async function loadCustomLaborCodes(){
 
 async function pullLaborCodesFromSheet(){
   if(!sheetUrl) return;
-  try{
-    const res = await fetch(sheetUrl + (sheetUrl.includes('?') ? '&' : '?') + 'type=laborcodes', {method:'GET'});
-    if(!res.ok) throw new Error('HTTP ' + res.status);
-    const rows = await res.json();
-    const remote = rows.map(r => ({ id: r.id, d: r.d, r: Number(r.r)||0, addedAt: r.addedAt }));
-    customLaborCodes = mergeById(customLaborCodes, remote, LABOR_CODE_ID_FIELDS);
-    rebuildLaborOptions();
-  }catch(e){ console.warn('pull labor codes failed', e); }
+  const r = await sheetRequest('GET', {type:'laborcodes'});
+  if(!r.ok || !Array.isArray(r.data)) return;
+  const remote = r.data.map(x => ({ id: x.id, d: x.d, r: Number(x.r)||0, addedAt: x.addedAt }));
+  customLaborCodes = mergeById(customLaborCodes, remote, LABOR_CODE_ID_FIELDS);
+  rebuildLaborOptions();
 }
 
 async function pushLaborCodeToSheet(code){
-  if(!sheetUrl) return false;
-  try{
-    const res = await fetch(sheetUrl, {method:'POST', body: JSON.stringify(Object.assign({_type:'laborcode'}, code))});
-    return res.ok;
-  }catch(e){ console.warn('push labor code failed', e); return false; }
+  const r = await sheetRequest('POST', {payload: Object.assign({_type:'laborcode'}, stripLocal(code))});
+  return r.ok;
 }
 
 document.getElementById('pricelistToggle').addEventListener('click', ()=>{
@@ -1426,7 +1774,7 @@ document.getElementById('saveLaborCodeBtn').addEventListener('click', async ()=>
   }catch(e){ console.error('save labor code failed', e); }
 
   let sheetOk = false;
-  if(sheetUrl){ sheetOk = await pushLaborCodeToSheet(code); }
+  if(sheetUrl){ sheetOk = await pushLaborCodeToSheet(code); if(!sheetOk){ code._unsynced = true; await persistRecord('laborcode:', code); } }
 
   if(localOk){
     customLaborCodes.push(code);
@@ -1488,18 +1836,52 @@ function parseCsv(text){
 }
 
 function exportCsv(){
-  const cols = ['job','c','v','d','l','p','pc','tx','pr','t','phone','email','vin','plate'];
-  const headers = ['Job','Customer','Vehicle','Date','Labor','Parts','Parts Cost','Tax','Profit','Invoice Total','Phone','Email','VIN','Plate'];
+  const cols = ['job','c','v','d','l','p','sp','pc','tx','pr','t','paid','payMethod','paidDate','phone','email','vin','plate'];
+  const headers = ['Job','Customer','Vehicle','Date','Labor','Parts','Shop Supplies','Parts Cost','Tax','Profit','Invoice Total','Paid','Payment Method','Date Paid','Phone','Email','VIN','Plate'];
   const rows = [headers.join(',')];
   allJobs.forEach(j=>{
-    rows.push(cols.map(c=>csvEscape(j[c])).join(','));
+    const rec = Object.assign({}, j, {sp: suppliesOf(j), paid: j.isQuote ? 'QUOTE' : (isUnpaid(j) ? 'No' : 'Yes')});
+    rows.push(cols.map(c=>csvEscape(rec[c])).join(','));
   });
-  downloadFile('mike-automotive-jobs-' + new Date().toISOString().slice(0,10) + '.csv', rows.join('\n'), 'text/csv');
+  downloadFile('mike-automotive-jobs-' + todayStr() + '.csv', rows.join('\n'), 'text/csv');
+}
+
+function exportPurchasesCsv(){
+  const cols = ['date','source','part','amount','customer','vehicle','notes'];
+  const rows = [['Date','Vendor','Part','Amount','Customer','Vehicle','Notes'].join(',')];
+  purchases.forEach(p=> rows.push(cols.map(c=>csvEscape(p[c])).join(',')));
+  downloadFile('mike-automotive-parts-log-' + todayStr() + '.csv', rows.join('\n'), 'text/csv');
+}
+
+async function markBackupDone(){
+  lastBackupAt = new Date().toISOString();
+  await writeConfig('config:lastBackup', lastBackupAt);
+  renderBackupReminder();
 }
 
 function downloadBackup(){
-  const backup = {version:1, exportedAt: new Date().toISOString(), invoices: customInvoices};
-  downloadFile('mike-automotive-backup-' + new Date().toISOString().slice(0,10) + '.json', JSON.stringify(backup, null, 2), 'application/json');
+  const backup = {
+    version: 2, exportedAt: new Date().toISOString(),
+    invoices: customInvoices.map(stripLocal),
+    purchases: purchases.map(stripLocal),
+    laborCodes: customLaborCodes.map(stripLocal)
+  };
+  downloadFile('mike-automotive-backup-' + todayStr() + '.json', JSON.stringify(backup, null, 2), 'application/json');
+  markBackupDone();
+}
+
+let backupReminderHidden = false;
+function renderBackupReminder(){
+  const box = document.getElementById('backupReminder');
+  if(!box) return;
+  let msg = '';
+  if(!lastBackupAt){ msg = 'No backup has been downloaded from this device yet.'; }
+  else {
+    const days = Math.floor((Date.now() - Date.parse(lastBackupAt)) / 864e5);
+    if(days >= 30) msg = 'It has been ' + days + ' days since your last backup.';
+  }
+  document.getElementById('backupReminderText').textContent = msg;
+  box.classList.toggle('show', !!msg && !backupReminderHidden);
 }
 
 async function restoreBackup(file){
@@ -1508,18 +1890,27 @@ async function restoreBackup(file){
     const text = await file.text();
     const parsed = JSON.parse(text);
     const invoices = Array.isArray(parsed) ? parsed : (parsed.invoices || []);
-    if(!invoices.length){ status.style.color='var(--red)'; status.textContent = 'No invoices found in that file.'; return; }
+    const purch = Array.isArray(parsed) ? [] : (parsed.purchases || []);
+    const codes = Array.isArray(parsed) ? [] : (parsed.laborCodes || []);
+    if(!invoices.length && !purch.length && !codes.length){ status.style.color='var(--red)'; status.textContent = 'Nothing found in that file.'; return; }
     let restored = 0;
-    for(const inv of invoices){
-      const key = 'invoice:' + Date.now() + '-' + restored;
-      await appStorage.set(key, JSON.stringify(inv), false);
-      customInvoices.push(inv);
-      restored++;
-    }
-    rebuildAllJobs();
-    renderDashboard();
+    const add = async (arr, list, prefix, fields) => {
+      for(const raw of arr){
+        const item = ensureStableId(Object.assign({}, raw), fields);
+        if(list.some(x=>x.id === item.id)) continue;          // already here
+        item._unsynced = !!sheetUrl;                            // push it to the Sheet on next sync
+        await persistRecord(prefix, item);
+        list.push(item);
+        restored++;
+      }
+    };
+    await add(invoices, customInvoices, 'invoice:', INVOICE_ID_FIELDS);
+    await add(purch, purchases, 'purchase:', PURCHASE_ID_FIELDS);
+    await add(codes, customLaborCodes, 'laborcode:', LABOR_CODE_ID_FIELDS);
+    rebuildAllJobs(); renderDashboard(); renderPurchases(); rebuildLaborOptions(); refreshAllViews();
     status.style.color='var(--green)';
-    status.textContent = 'Restored ' + restored + ' invoice' + (restored===1?'':'s') + '.';
+    status.textContent = 'Restored ' + restored + ' record' + (restored===1?'':'s') + (restored ? ' — syncing to the Sheet…' : ' (all were already here).');
+    if(restored) syncNow();
   }catch(e){
     console.error(e);
     status.style.color='var(--red)';
@@ -1528,43 +1919,14 @@ async function restoreBackup(file){
 }
 
 document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
+document.getElementById('exportPurchasesCsvBtn').addEventListener('click', exportPurchasesCsv);
+document.getElementById('backupReminderBtn').addEventListener('click', downloadBackup);
+document.getElementById('backupReminderLater').addEventListener('click', ()=>{ backupReminderHidden = true; renderBackupReminder(); });
 document.getElementById('downloadBackupBtn').addEventListener('click', downloadBackup);
 document.getElementById('restoreBackupBtn').addEventListener('click', ()=> document.getElementById('restoreFileInput').click());
 document.getElementById('restoreFileInput').addEventListener('change', e=>{
   if(e.target.files && e.target.files[0]) restoreBackup(e.target.files[0]);
   e.target.value = '';
-});
-
-document.getElementById('importHistoricalBtn').addEventListener('click', async ()=>{
-  const status = document.getElementById('backupStatus');
-  if(!sheetUrl){ status.style.color='var(--red)'; status.textContent = 'Connect to a Sheet first (see Multi-Location Sync above).'; return; }
-  const proceed = confirm('This pushes the ' + SEED_JOBS.length + ' historical jobs from your original spreadsheet into the Invoices tab of your Google Sheet, including full job/parts detail where it was recoverable. Safe to run more than once — it will update the same rows rather than duplicating them. Continue?');
-  if(!proceed) return;
-
-  let done = 0, failed = 0;
-  const total = SEED_JOBS.length;
-  status.style.color = 'var(--ink-soft)';
-  status.textContent = 'Importing 0 / ' + total + '…';
-
-  for(let i=0; i<SEED_JOBS.length; i++){
-    const j = SEED_JOBS[i];
-    const record = {
-      id: 'hist-' + i,
-      job: j.job, c: j.c, v: j.v, d: j.d,
-      l: j.l, p: j.p, pc: j.pc, tx: j.tx, pr: j.pr, t: j.t,
-      phone: j.phone||'', email: j.email||'', engine: j.engine||'', color: j.color||'', vin: j.vin||'',
-      milesIn: j.milesIn||'', milesOut: j.milesOut||'', plate: j.plate||'',
-      symptoms: j.symptoms||'', dtc: j.dtc||[], work: j.work||'', advisory: j.advisory||'',
-      groups: j.groups||null, isQuote: false,
-      savedAt: new Date().toISOString()
-    };
-    const ok = await pushToSheet(record);
-    if(ok) done++; else failed++;
-    if(i % 10 === 0){ status.textContent = 'Importing ' + (done+failed) + ' / ' + total + '…'; }
-  }
-
-  status.style.color = failed ? 'var(--red)' : 'var(--green)';
-  status.textContent = '✓ Imported ' + done + ' / ' + total + ' to the Sheet' + (failed ? (' — ' + failed + ' failed, you can run this again') : '') + '. Let Claude know when this finishes so the app can be updated to pull historical jobs from the Sheet instead of having them built in.';
 });
 
 function findAndReportDuplicates(items, keyFields, reportElId, labelFn, noneLabel){
@@ -1692,6 +2054,9 @@ function renderDashboard(){
   document.getElementById('kpiCost').textContent = fmt$(totalCost) + ' in parts cost';
   document.getElementById('kpiAvgTicket').textContent = fmt$(avgTicket);
   document.getElementById('kpiMargin').textContent = avgMargin.toFixed(1) + '%';
+  const unpaidJobs = allJobs.filter(isUnpaid);
+  document.getElementById('kpiOwed').textContent = fmt$(unpaidJobs.reduce((a,j)=>a+(Number(j.t)||0),0));
+  document.getElementById('kpiOwedCount').textContent = unpaidJobs.length + ' unpaid invoice' + (unpaidJobs.length===1?'':'s');
 
   // top customer
   const byCust = {};
@@ -1782,6 +2147,10 @@ function renderTable(){
     (j.v||'').toLowerCase().includes(q) ||
     (j.job||'').toLowerCase().includes(q)
   );
+  const flt = (document.getElementById('jobFilter')||{}).value || 'all';
+  if(flt === 'unpaid') rows = rows.filter(isUnpaid);
+  else if(flt === 'quotes') rows = rows.filter(j=>j.isQuote);
+  else if(flt === 'invoices') rows = rows.filter(j=>!j.isQuote);
   rows = rows.map(j=>Object.assign({}, j, {margin: marginOf(j)}));
   rows.sort((a,b)=>{
     let av=a[sortKey], bv=b[sortKey];
@@ -1797,7 +2166,9 @@ function renderTable(){
   tbody.innerHTML = rows.map((j,i)=>{
     const m = j.margin;
     const cls = m>=55 ? 'hi' : m>=35 ? 'mid' : 'lo';
-    const badge = j.isQuote ? '<span class="quote-badge">QUOTE</span>' : (j.custom ? '<span class="custom-badge">NEW</span>' : '');
+    let badge = j.isQuote ? '<span class="quote-badge">QUOTE</span>' : (j.custom ? '<span class="custom-badge">NEW</span>' : '');
+    if(isUnpaid(j)) badge += '<span class="unpaid-badge">UNPAID</span>';
+    if(j._unsynced) badge += '<span class="unsynced-badge">NOT SYNCED</span>';
     return `<tr data-row-i="${i}" style="cursor:pointer;">
       <td>${escapeHtml(j.job||'—')}${badge}</td>
       <td>${escapeHtml(j.c||'—')}</td>
@@ -1828,6 +2199,12 @@ document.querySelectorAll('thead th[data-key]').forEach(th=>{
   });
 });
 document.getElementById('jobSearch').addEventListener('input', renderTable);
+document.getElementById('jobFilter').addEventListener('change', renderTable);
+document.getElementById('kpiOwedCard').addEventListener('click', ()=>{
+  document.getElementById('jobFilter').value = 'unpaid';
+  renderTable();
+  document.getElementById('jobTableBody').scrollIntoView({behavior:'smooth', block:'center'});
+});
 
 // ---------- Invoice detail modal (recall a saved invoice) ----------
 let currentDetailJob = null;
@@ -1879,17 +2256,74 @@ function openInvoiceDetail(job){
     });
   }
 
+  const supDetail = suppliesOf(job);
+  const payRow = job.isQuote ? '' : (isUnpaid(job)
+      ? '<div class="mrow"><b>Payment</b><span style="color:var(--red);font-weight:700;">UNPAID</span></div>'
+      : '<div class="mrow"><b>Payment</b><span style="color:var(--green);font-weight:700;">' + escapeHtml(isPaidTrue(job) ? payInfoOf(job) : 'Paid (older record)') + '</span></div>');
   html += `<h4>Totals</h4>
     <div class="mrow"><b>Labor</b><span>${fmt$(job.l)}</span></div>
     <div class="mrow"><b>Parts</b><span>${fmt$(job.p)}</span></div>
+    ${supDetail ? ('<div class="mrow"><b>Shop Supplies</b><span>' + fmt$(supDetail) + '</span></div>') : ''}
     <div class="mrow"><b>Tax</b><span>${fmt$(job.tx)}</span></div>
     <div class="mrow"><b>Invoice Total</b><span>${fmt$(job.t)}</span></div>
+    ${payRow}
     <div class="mrow"><b>Profit</b><span style="color:var(--green)">${fmt$(job.pr)}</span></div>`;
 
   body.innerHTML = html;
   document.getElementById('detailLoadBtn').style.display = (job.groups && job.groups.length) ? 'inline-block' : 'none';
+  updateDetailButtons(job);
   document.getElementById('detailModalOverlay').classList.add('active');
 }
+
+
+function updateDetailButtons(job){
+  const isQ = !!job.isQuote;
+  const unpaid = isUnpaid(job);
+  document.getElementById('detailConvertBtn').style.display = isQ ? 'inline-block' : 'none';
+  document.getElementById('detailPayBtn').style.display = isQ ? 'none' : 'inline-block';
+  document.getElementById('detailPayBtn').textContent = unpaid ? 'Mark Paid' : 'Mark Unpaid';
+  document.getElementById('detailPayMethod').style.display = (isQ || !unpaid) ? 'none' : 'inline-block';
+}
+
+// Save a changed record (used by Mark Paid etc.): local first, then Sheet, flagged if the Sheet is unreachable.
+async function commitRecord(rec){
+  rec._unsynced = !!sheetUrl;
+  await persistRecord('invoice:', rec);
+  if(sheetUrl){
+    const ok = await pushToSheet(rec);
+    if(ok){ delete rec._unsynced; await persistRecord('invoice:', rec); }
+  }
+  rebuildAllJobs(); renderDashboard(); refreshAllViews();
+}
+
+document.getElementById('detailPayBtn').addEventListener('click', async ()=>{
+  const j = currentDetailJob; if(!j) return;
+  const rec = customInvoices.find(x=>x.id === j.id);
+  if(!rec){ alert('That record is not loaded yet — tap Sync Now and try again.'); return; }
+  if(isUnpaid(rec)){
+    rec.paid = true; rec.paidDate = todayStr(); rec.payMethod = document.getElementById('detailPayMethod').value;
+  } else {
+    rec.paid = false; rec.paidDate = ''; rec.payMethod = '';
+  }
+  rec.savedAt = new Date().toISOString(); rec.savedBy = deviceName;
+  await commitRecord(rec);
+  openInvoiceDetail(rec);
+});
+
+document.getElementById('detailConvertBtn').addEventListener('click', ()=>{
+  const j = currentDetailJob; if(!j) return;
+  if(!j.groups || !j.groups.length){ alert('This quote has no line items saved, so it cannot be converted. Create a new invoice instead.'); return; }
+  loadJobIntoEditor(j);
+  docType = 'invoice';
+  loadedWasQuote = true;
+  document.getElementById('fDate').value = todayStr();
+  setPaymentFields(false, '', '');
+  updateDocTypeUI();
+  closeInvoiceDetail();
+  document.querySelector('nav.tabs button[data-view="invoice"]').click();
+  showFlash('Quote loaded as an invoice — review it, then press Save Invoice.', 'warn');
+  formDirty = true;
+});
 
 function closeInvoiceDetail(){
   document.getElementById('detailModalOverlay').classList.remove('active');
@@ -1934,6 +2368,9 @@ function loadJobIntoEditor(job){
   document.getElementById('fDate').value = job.d || '';
   document.getElementById('fNextOilMiles').value = job.nextOilMiles || '';
   document.getElementById('fNextOilDate').value = job.nextOilDate || '';
+  setPaymentFields(isPaidTrue(job) || (!job.isQuote && !isUnpaid(job)), job.payMethod || '', job.paidDate || '');
+  loadedSavedAt = job.savedAt || null;
+  loadedWasQuote = !!job.isQuote;
 
   (job.groups||[]).forEach(g=>{
     addJobGroup({
@@ -1948,6 +2385,7 @@ function loadJobIntoEditor(job){
   calcTotals();
   updateDocTypeUI();
   showEditingBanner(job.c);
+  formDirty = false;
 }
 
 document.getElementById('detailModalClose').addEventListener('click', closeInvoiceDetail);
@@ -1977,6 +2415,7 @@ function updateDocTypeUI(){
     ? (isQuote ? 'Update Quote' : 'Update Invoice')
     : (isQuote ? 'Save Quote' : 'Save Invoice');
   document.getElementById('printBtn').textContent = isQuote ? 'Print Customer Quote' : 'Print Customer Invoice';
+  document.getElementById('paymentPanel').style.display = isQuote ? 'none' : 'block';
 }
 
 document.getElementById('docTypeInvoiceBtn').addEventListener('click', ()=>{ docType='invoice'; updateDocTypeUI(); });
@@ -2005,6 +2444,8 @@ document.querySelectorAll('nav.tabs button').forEach(btn=>{
     btn.classList.add('active');
     document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
     document.getElementById('view-' + btn.dataset.view).classList.add('active');
+    if(btn.dataset.view === 'customers') renderCustomers();
+    if(btn.dataset.view === 'reports') renderReports();
   });
 });
 
@@ -2262,6 +2703,40 @@ function calcTotals(){
 document.getElementById('addJobGroup').addEventListener('click', ()=>{ addJobGroup(); calcTotals(); });
 document.getElementById('fTaxRate').addEventListener('input', calcTotals);
 
+function setPaymentFields(paid, method, date){
+  document.getElementById('fPaid').value = paid ? 'paid' : 'unpaid';
+  document.getElementById('fPayMethod').value = method || '';
+  document.getElementById('fPaidDate').value = paid ? (date || '') : '';
+}
+document.getElementById('fPaid').addEventListener('change', ()=>{
+  const paid = document.getElementById('fPaid').value === 'paid';
+  const d = document.getElementById('fPaidDate');
+  if(paid && !d.value) d.value = todayStr();
+  if(!paid){ d.value = ''; document.getElementById('fPayMethod').value = ''; }
+});
+
+let flashTimer = null;
+function showFlash(msg, kind){
+  const flash = document.getElementById('savedFlash');
+  flash.textContent = msg;
+  flash.className = 'saved-flash' + (kind ? (' ' + kind) : '');
+  flash.style.display = 'block';
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(()=>{ flash.style.display = 'none'; }, kind === 'err' ? 9000 : 5000);
+}
+
+document.getElementById('view-invoice').addEventListener('input', ()=>{ formDirty = true; });
+document.getElementById('jobGroupsContainer').addEventListener('click', ()=>{ formDirty = true; });
+window.addEventListener('beforeunload', e=>{
+  if(formDirty){ e.preventDefault(); e.returnValue = ''; }
+});
+document.addEventListener('keydown', e=>{
+  if((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S') && document.getElementById('view-invoice').classList.contains('active')){
+    e.preventDefault();
+    document.getElementById('saveBtn').click();
+  }
+});
+
 function getIntakeFields(){
   const year = document.getElementById('fYear').value.trim();
   const make = document.getElementById('fMake').value.trim();
@@ -2284,7 +2759,10 @@ function getIntakeFields(){
     advisory: document.getElementById('fAdvisory').value.trim(),
     nextOilMiles: document.getElementById('fNextOilMiles').value.trim(),
     nextOilDate: document.getElementById('fNextOilDate').value,
-    date: document.getElementById('fDate').value || new Date().toISOString().slice(0,10)
+    paid: document.getElementById('fPaid').value === 'paid',
+    payMethod: document.getElementById('fPayMethod').value,
+    paidDate: document.getElementById('fPaidDate').value,
+    date: document.getElementById('fDate').value || todayStr()
   };
 }
 
@@ -2357,7 +2835,7 @@ function openInvoicePrintWindow(data){
         <img src="${LOGO_DATA_URI}" alt="Mike Automotive logo" style="width:48px;height:48px;border-radius:50%;">
         <div><h1>Mike Automotive</h1><div class="addr">901-219-8229 &nbsp;·&nbsp; 9060 Chimneyrock Blvd, Cordova, TN</div></div>
       </div>
-      <div class="meta">${docLabel}<br>${fmtDate(data.date)}</div>
+      <div class="meta">${docLabel}<br>${fmtDate(data.date)}${data.paidInfo ? ('<br><b style="color:#3E8E5B;">' + escapeHtml(data.paidInfo) + '</b>') : ''}</div>
     </div>
     ${isQuote ? '<div class="quote-note">This is an estimate only — prices are subject to change once the vehicle is inspected and work begins.</div>' : ''}
     <div class="info">
@@ -2378,6 +2856,7 @@ function openInvoicePrintWindow(data){
       <div class="row grand"><span>${totalLabel}</span><span>${fmt$(data.grand)}</span></div>
     </div>
     <div class="warranty">90 DAYS LABOR WARRANTY UNLESS OTHERWISE SPECIFIED THROUGH OWNER. MOST PARTS ARE 12 MONTHS WARRANTY WITH EXCEPTION OF ELECTRICAL PARTS UNLESS OTHERWISE SPECIFIED THROUGH OWNER. CUSTOMER MUST BRING VEHICLE BACK TO MIKE AUTOMOTIVE FOR WARRANTY OF PARTS/LABOR.</div>
+    ${printNote ? ('<div style="text-align:center;margin-top:14px;font-weight:600;font-size:13px;">' + escapeHtml(printNote) + '</div>') : ''}
   </body></html>`);
   win.document.close();
   win.focus();
@@ -2392,7 +2871,10 @@ function printStoredInvoice(job){
     symptoms: job.symptoms, dtc: job.dtc, work: job.work, advisory: job.advisory,
     nextOilMiles: job.nextOilMiles, nextOilDate: job.nextOilDate,
     groupsHtml: buildJobGroupsPrintHtml(job.groups),
-    laborTotal: job.l, partsTotal: job.p, supplies: 0, tax: job.tx, grand: job.t,
+    laborTotal: job.l, partsTotal: job.p, supplies: suppliesOf(job),
+    taxRate: (job.txr !== undefined && job.txr !== '') ? Number(job.txr) : undefined,
+    tax: job.tx, grand: job.t,
+    paidInfo: payInfoOf(job),
     isQuote: !!job.isQuote
   });
 }
@@ -2412,6 +2894,7 @@ document.getElementById('printBtn').addEventListener('click', ()=>{
     groupsHtml: buildJobGroupsPrintHtml(jobGroups),
     laborTotal: totals.laborTotal, partsTotal: totals.partsTotal, supplies,
     taxRate, tax: totals.tax, grand: totals.grand,
+    paidInfo: (docType !== 'quote' && f.paid) ? ('PAID' + (f.payMethod ? (' — ' + f.payMethod) : '') + (f.paidDate ? (' — ' + fmtDate(f.paidDate)) : '')) : '',
     isQuote: docType === 'quote'
   });
 });
@@ -2425,7 +2908,9 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   ['fCustomer','fPhone','fEmail','fYear','fMake','fModel','fEngine','fColor','fVin','fMilesIn','fMilesOut','fPlate','fSymptoms','fDtcInput','fWork','fAdvisory','fNextOilMiles','fNextOilDate'].forEach(id=>{
     document.getElementById(id).value='';
   });
-  document.getElementById('fDate').value='';
+  document.getElementById('fDate').value = todayStr();
+  setPaymentFields(false, '', '');
+  loadedSavedAt = null; loadedWasQuote = false; formDirty = false;
   document.getElementById('fTaxRate').value='9.75';
   document.getElementById('returningCustomerNote').style.display='none';
   document.getElementById('vehiclePicker').style.display='none';
@@ -2433,79 +2918,411 @@ document.getElementById('clearBtn').addEventListener('click', ()=>{
   document.getElementById('savedFlash').style.display='none';
 });
 
-document.getElementById('saveBtn').addEventListener('click', async ()=>{
+let saving = false;
+
+// Has someone else saved a newer version of this record since it was loaded here?
+async function checkRemoteConflict(id, loadedAt){
+  if(!sheetUrl || !loadedAt) return null;
+  const r = await sheetRequest('GET');
+  if(!r.ok || !Array.isArray(r.data)) return null;
+  const row = r.data.find(x=>String(x.id) === String(id));
+  if(!row || !row.savedAt) return null;
+  const rt = Date.parse(row.savedAt), lt = Date.parse(loadedAt);
+  if(isNaN(rt) || isNaN(lt)) return null;
+  return (rt > lt + 2000) ? {savedAt: row.savedAt, by: row.savedBy || ''} : null;
+}
+
+async function saveInvoice(){
+  if(saving) return;
   const totals = calcTotals();
   const f = getIntakeFields();
-  if(!f.customer){ alert('Add a customer name before saving.'); return; }
-
-  const isUpdate = !!currentEditingId;
-  const id = currentEditingId || (crypto.randomUUID ? crypto.randomUUID() : ('inv-' + Date.now() + '-' + Math.random().toString(36).slice(2)));
-  const isQuote = docType === 'quote';
-  const job = {
-    id, c: f.customer, v: f.vehicle || 'Unknown vehicle', d: f.date,
-    l: Number(totals.laborTotal.toFixed(2)), p: Number(totals.partsTotal.toFixed(2)),
-    pc: Number(totals.partsCostTotal.toFixed(2)), tx: Number(totals.tax.toFixed(2)),
-    pr: Number(totals.profit.toFixed(2)), t: Number(totals.grand.toFixed(2)),
-    job: f.customer + (f.vehicle ? (' — ' + f.vehicle) : ''), custom: true, isQuote,
-    phone: f.phone, email: f.email, engine: f.engine, color: f.color, vin: f.vin,
-    milesIn: f.milesIn, milesOut: f.milesOut, plate: f.plate,
-    symptoms: f.symptoms, dtc: f.dtc, work: f.work, advisory: f.advisory,
-    nextOilMiles: f.nextOilMiles, nextOilDate: f.nextOilDate,
-    groups: jobGroups.map(g=>({name:g.name, labor:g.labor, parts:g.parts})),
-    savedAt: new Date().toISOString()
-  };
-
-  const key = 'invoice:' + id;
-  let localOk = false, sheetOk = false;
+  if(!f.customer){
+    showFlash('Add a customer name before saving.', 'err');
+    document.getElementById('fCustomer').focus();
+    return;
+  }
+  saving = true;
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = true;
   try{
-    if(typeof appStorage !== 'undefined'){
-      await appStorage.set(key, JSON.stringify(job), false);
+    const isUpdate = !!currentEditingId;
+    const isQuote = docType === 'quote';
+
+    if(isUpdate && loadedSavedAt){
+      const c = await checkRemoteConflict(currentEditingId, loadedSavedAt);
+      if(c){
+        const ok = confirm('This ' + (isQuote ? 'quote' : 'invoice') + ' was changed on another device' + (c.by ? (' (' + c.by + ')') : '') + ' at ' + new Date(c.savedAt).toLocaleString() + '.\n\nSaving now will overwrite those changes.\n\nOK = overwrite them     Cancel = stop');
+        if(!ok) return;
+      }
     }
-    localOk = true;
-  }catch(e){ console.error('local save failed', e); }
 
-  if(sheetUrl){ sheetOk = await pushToSheet(job); }
+    const id = currentEditingId || (crypto.randomUUID ? crypto.randomUUID() : ('inv-' + Date.now() + '-' + Math.random().toString(36).slice(2)));
+    const job = {
+      id, c: f.customer, v: f.vehicle || 'Unknown vehicle', d: f.date,
+      l: Number(totals.laborTotal.toFixed(2)), p: Number(totals.partsTotal.toFixed(2)),
+      pc: Number(totals.partsCostTotal.toFixed(2)), tx: Number(totals.tax.toFixed(2)),
+      pr: Number(totals.profit.toFixed(2)), t: Number(totals.grand.toFixed(2)),
+      sp: Number(totals.supplies.toFixed(2)), txr: Number(document.getElementById('fTaxRate').value) || 0,
+      job: f.customer + (f.vehicle ? (' — ' + f.vehicle) : ''), custom: true, isQuote,
+      phone: f.phone, email: f.email, engine: f.engine, color: f.color, vin: f.vin,
+      milesIn: f.milesIn, milesOut: f.milesOut, plate: f.plate,
+      symptoms: f.symptoms, dtc: f.dtc, work: f.work, advisory: f.advisory,
+      nextOilMiles: f.nextOilMiles, nextOilDate: f.nextOilDate,
+      paid: isQuote ? false : f.paid,
+      paidDate: (!isQuote && f.paid) ? (f.paidDate || todayStr()) : '',
+      payMethod: (!isQuote && f.paid) ? f.payMethod : '',
+      groups: jobGroups.map(g=>({name:g.name, labor:g.labor, parts:g.parts})),
+      savedAt: new Date().toISOString(), savedBy: deviceName || guessDeviceName()
+    };
 
-  if(localOk || sheetOk){
-    const idx = customInvoices.findIndex(x=>x.id===id);
+    // 1) save on this device first (flagged "not synced" until the Sheet confirms)
+    job._unsynced = !!sheetUrl;
+    let localOk = false;
+    try{
+      if(typeof appStorage !== 'undefined') await appStorage.set('invoice:' + id, JSON.stringify(job), false);
+      localOk = true;
+    }catch(e){ console.error('local save failed', e); }
+
+    // 2) push to the Sheet
+    let sheetOk = false;
+    if(sheetUrl){
+      sheetOk = await pushToSheet(job);
+      if(sheetOk){
+        delete job._unsynced;
+        if(localOk) await persistRecord('invoice:', job);
+      }
+    }
+    if(!localOk && !sheetOk){
+      showFlash('Could not save this invoice. Please try again.', 'err');
+      return;
+    }
+    if(!sheetUrl || sheetOk) delete job._unsynced;
+
+    const idx = customInvoices.findIndex(x=>x.id === id);
     if(idx >= 0){ customInvoices[idx] = job; } else { customInvoices.push(job); }
     rebuildAllJobs();
     renderDashboard();
-    if(!isUpdate && !isQuote){ await logPartsAsPurchases(job); }
-    const flash = document.getElementById('savedFlash');
+    refreshAllViews();
+
+    // log parts to the purchases log for brand-new invoices, or a quote that just became an invoice
+    if(!isQuote && (!isUpdate || loadedWasQuote)){ await logPartsAsPurchases(job); }
+
+    // stay on this record, so pressing Save again updates it instead of creating a duplicate
+    currentEditingId = id;
+    loadedSavedAt = job.savedAt;
+    loadedWasQuote = isQuote;
+    formDirty = false;
+    showEditingBanner(f.customer);
+    updateDocTypeUI();
+
     const label = isQuote ? 'Quote' : 'Invoice';
     const verb = isUpdate ? 'updated' : 'saved';
-    if(sheetUrl){
-      flash.textContent = sheetOk ? ('✓ ' + label + ' ' + verb + ' and synced to the Sheet.') : ('✓ Saved locally — Sheet sync failed, use "Pull Latest" or check your connection later.');
+    if(!sheetUrl){
+      showFlash('✓ ' + label + ' ' + verb + ' on this device.', '');
+    } else if(sheetOk){
+      showFlash('✓ ' + label + ' ' + verb + ' and synced to the Sheet.', '');
     } else {
-      flash.textContent = '✓ ' + label + ' ' + verb + (isUpdate ? ' in' : ' to') + ' the shop ledger.';
+      showFlash('⚠ ' + label + ' ' + verb + ' on this device, but it did NOT reach the Sheet' + (accessDenied ? ' (access key needed)' : '') + '. It is marked "not synced" and will retry automatically — or tap Sync Now.', 'warn');
     }
-    flash.style.display = 'block';
-    setTimeout(()=>{ flash.style.display='none'; }, 4000);
-  } else {
-    alert('Could not save this invoice. Please try again.');
+  } finally {
+    saving = false;
+    saveBtn.disabled = false;
   }
+}
+document.getElementById('saveBtn').addEventListener('click', saveInvoice);
+
+// ================= Customers =================
+let expandedCust = '';
+let currentCustMap = {};
+
+function hasOilService(j){
+  const txt = [j.work || ''];
+  (j.groups || []).forEach(g=>{
+    txt.push(g.name || '');
+    normalizeLabor(g.labor).forEach(l=> txt.push(l.desc || ''));
+  });
+  return /\boil\b/i.test(txt.join(' '));
+}
+
+function buildCustomers(){
+  const map = {};
+  allJobs.forEach(j=>{
+    const name = (j.c || '').trim();
+    if(!name) return;
+    const k = name.toLowerCase();
+    const c = map[k] || (map[k] = {key:k, name, phone:'', email:'', jobs:[], spent:0, visits:0, owed:0, last:'', vehicles:{}});
+    c.jobs.push(j);
+  });
+  Object.values(map).forEach(c=>{
+    c.jobs.sort((a,b)=> (dayNum(b.d)||0) - (dayNum(a.d)||0));
+    c.jobs.forEach(j=>{
+      if(!c.phone && j.phone) c.phone = j.phone;
+      if(!c.email && j.email) c.email = j.email;
+      if(j.v) c.vehicles[j.v] = true;
+      if(!j.isQuote){
+        c.visits++;
+        c.spent += Number(j.t) || 0;
+        if(isUnpaid(j)) c.owed += Number(j.t) || 0;
+        if(!c.last) c.last = j.d;
+      }
+    });
+  });
+  return map;
+}
+
+function computeReminders(map){
+  const today = dayNum(todayStr());
+  const out = [];
+  Object.values(map).forEach(c=>{
+    const byVeh = {};
+    c.jobs.filter(j=>!j.isQuote).forEach(j=>{
+      const vk = (j.vin && String(j.vin).trim()) ? String(j.vin).trim().toLowerCase() : (j.v || '').toLowerCase();
+      (byVeh[vk] = byVeh[vk] || []).push(j);
+    });
+    Object.values(byVeh).forEach(list=>{
+      // list is newest-first. Find the newest job that set a next-oil date.
+      const idx = list.findIndex(j=>j.nextOilDate);
+      if(idx < 0) return;
+      const src = list[idx];
+      // if a NEWER job on the same vehicle included an oil service, this reminder is already handled
+      if(list.slice(0, idx).some(hasOilService)) return;
+      const due = dayNum(src.nextOilDate);
+      if(isNaN(due)) return;
+      const days = due - today;
+      if(days > 30) return;
+      out.push({cust:c, vehicle: src.v || '', date: src.nextOilDate, miles: src.nextOilMiles || '', days});
+    });
+  });
+  out.sort((a,b)=>a.days - b.days);
+  return out;
+}
+
+function cleanPhone(ph){
+  const d = String(ph || '').replace(/\D/g, '');
+  if(d.length === 10) return '+1' + d;
+  if(d.length === 11 && d[0] === '1') return '+' + d;
+  return d ? ('+' + d) : '';
+}
+
+function reminderMessage(r){
+  const first = (r.cust.name.split(/\s+/)[0] || 'there');
+  const when = [r.miles ? ('at ' + r.miles) : '', r.date ? ('by ' + fmtDate(r.date)) : ''].filter(Boolean).join(' / ');
+  return 'Hi ' + first + ', this is Mike Automotive. Your ' + (r.vehicle || 'vehicle') + ' is due for its next oil change' + (when ? (' (' + when + ')') : '') + '. Call or text 901-219-8229 to schedule. Thanks!';
+}
+
+function renderCustomers(){
+  const body = document.getElementById('custBody');
+  if(!body) return;
+  const map = buildCustomers();
+  currentCustMap = map;
+  const reminders = computeReminders(map);
+
+  // tab badge
+  const tabCount = document.getElementById('custTabCount');
+  if(tabCount){ tabCount.textContent = reminders.length; tabCount.style.display = reminders.length ? 'inline-block' : 'none'; }
+  document.getElementById('dueCount').textContent = '(' + reminders.length + ')';
+
+  document.getElementById('dueBody').innerHTML = reminders.map((r, i)=>{
+    const cls = r.days < 0 ? 'due-over' : 'due-soon';
+    const label = r.days < 0 ? (Math.abs(r.days) + ' day' + (Math.abs(r.days)===1?'':'s') + ' overdue') : (r.days === 0 ? 'due today' : ('in ' + r.days + ' day' + (r.days===1?'':'s')));
+    const msg = reminderMessage(r);
+    const ph = cleanPhone(r.cust.phone);
+    const sms = ph ? ('<a class="btn btn-ghost btn-sm" href="sms:' + ph + '?&body=' + encodeURIComponent(msg) + '">Text</a> ') : '';
+    const mail = r.cust.email ? ('<a class="btn btn-ghost btn-sm" href="mailto:' + encodeURIComponent(r.cust.email) + '?subject=' + encodeURIComponent('Oil change reminder — Mike Automotive') + '&body=' + encodeURIComponent(msg) + '">Email</a> ') : '';
+    return '<tr><td>' + escapeHtml(r.cust.name) + '</td><td>' + escapeHtml(r.vehicle || '—') + '</td>' +
+      '<td><span class="' + cls + '">' + escapeHtml(label) + '</span><br><span class="mono" style="font-size:11px;color:var(--ink-soft);">' + fmtDate(r.date) + (r.miles ? (' · ' + escapeHtml(r.miles)) : '') + '</span></td>' +
+      '<td class="mono">' + escapeHtml(r.cust.phone || '—') + '</td>' +
+      '<td>' + sms + mail + '<button class="btn btn-ghost btn-sm" data-copy-msg="' + escapeHtml(msg) + '">Copy text</button></td></tr>';
+  }).join('') || '<tr><td colspan="5" style="padding:16px;color:var(--ink-soft);">No oil changes due in the next 30 days. (Fill in "Next Oil Service" on invoices and they will show up here.)</td></tr>';
+
+  document.getElementById('dueBody').querySelectorAll('[data-copy-msg]').forEach(b=>{
+    b.addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(b.dataset.copyMsg); b.textContent = 'Copied ✓'; }catch(e){ b.textContent = 'Copy failed'; }
+      setTimeout(()=>{ b.textContent = 'Copy text'; }, 2000);
+    });
+  });
+
+  // customer list
+  const q = (document.getElementById('custSearch').value || '').toLowerCase();
+  let list = Object.values(map).filter(c=>
+    !q || c.name.toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q) ||
+    Object.keys(c.vehicles).some(v=>v.toLowerCase().includes(q))
+  );
+  list.sort((a,b)=> (dayNum(b.last)||0) - (dayNum(a.last)||0));
+  document.getElementById('custCount').textContent = '(' + list.length + ')';
+
+  let html = '';
+  list.slice(0, 400).forEach(c=>{
+    html += '<tr data-ckey="' + escapeHtml(c.key) + '" style="cursor:pointer;">' +
+      '<td>' + escapeHtml(c.name) + '</td><td class="mono">' + escapeHtml(c.phone || '—') + '</td>' +
+      '<td class="num">' + c.visits + '</td><td class="num">' + fmt$(c.spent) + '</td>' +
+      '<td class="num" style="' + (c.owed > 0 ? 'color:var(--red);font-weight:700;' : '') + '">' + (c.owed > 0 ? fmt$(c.owed) : '—') + '</td>' +
+      '<td class="mono">' + fmtDate(c.last) + '</td></tr>';
+    if(expandedCust === c.key){
+      html += '<tr class="cust-detail"><td colspan="6">' +
+        '<div style="margin-bottom:6px;font-size:12px;color:var(--ink-soft);">' +
+          (c.email ? ('✉ ' + escapeHtml(c.email) + ' &nbsp; ') : '') +
+          (Object.keys(c.vehicles).length ? ('🚗 ' + Object.keys(c.vehicles).map(escapeHtml).join(' · ')) : '') +
+        '</div>' +
+        c.jobs.map((j, ji)=>
+          '<div class="cust-job" data-ckey2="' + escapeHtml(c.key) + '" data-ji="' + ji + '"><span>' + fmtDate(j.d) + ' — ' + escapeHtml(j.v || '') +
+          (j.isQuote ? ' <span class="quote-badge">QUOTE</span>' : '') + (isUnpaid(j) ? ' <span class="unpaid-badge">UNPAID</span>' : '') +
+          '</span><b class="mono">' + fmt$(j.t) + '</b></div>'
+        ).join('') + '</td></tr>';
+    }
+  });
+  body.innerHTML = html || '<tr><td colspan="6" style="padding:16px;color:var(--ink-soft);">No customers match.</td></tr>';
+
+  body.querySelectorAll('tr[data-ckey]').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      expandedCust = (expandedCust === tr.dataset.ckey) ? '' : tr.dataset.ckey;
+      renderCustomers();
+    });
+  });
+  body.querySelectorAll('.cust-job').forEach(div=>{
+    div.addEventListener('click', ()=>{
+      const c = currentCustMap[div.dataset.ckey2];
+      if(c) openInvoiceDetail(c.jobs[Number(div.dataset.ji)]);
+    });
+  });
+}
+document.getElementById('custSearch').addEventListener('input', renderCustomers);
+
+// ================= Reports =================
+function monthsOfYear(yearSel, ymSet){
+  return Array.from(ymSet).filter(ym=> yearSel === 'all' || ym.startsWith(yearSel)).sort().reverse();
+}
+
+let lastTaxRows = [];
+
+function renderReports(){
+  const sel = document.getElementById('repYear');
+  if(!sel) return;
+  const invs = allJobs.filter(j=>!j.isQuote && ymOf(j.d));
+  const years = Array.from(new Set(invs.concat(purchases.map(p=>({d:p.date}))).map(j=>ymOf(j.d).slice(0,4)).filter(Boolean))).sort().reverse();
+  const prev = sel.value || String(new Date().getFullYear());
+  sel.innerHTML = '<option value="all">All years</option>' + years.map(y=>'<option value="' + y + '">' + y + '</option>').join('');
+  sel.value = (prev === 'all' || years.includes(prev)) ? prev : (years[0] || 'all');
+  const yr = sel.value;
+
+  // ---- sales & tax by month
+  const byM = {};
+  invs.forEach(j=>{
+    const ym = ymOf(j.d);
+    if(yr !== 'all' && !ym.startsWith(yr)) return;
+    const m = byM[ym] || (byM[ym] = {n:0, labor:0, parts:0, sup:0, tax:0, total:0, unpaid:0});
+    m.n++; m.labor += Number(j.l)||0; m.parts += Number(j.p)||0; m.sup += suppliesOf(j);
+    m.tax += Number(j.tx)||0; m.total += Number(j.t)||0;
+    if(isUnpaid(j)) m.unpaid += Number(j.t)||0;
+  });
+  const months = Object.keys(byM).sort().reverse();
+  const tot = {n:0, labor:0, parts:0, sup:0, tax:0, total:0, unpaid:0};
+  lastTaxRows = [];
+  let html = months.map(ym=>{
+    const m = byM[ym];
+    Object.keys(tot).forEach(k=> tot[k] += m[k]);
+    lastTaxRows.push([monthLabel(ym), m.n, m.labor, m.parts, m.sup, m.parts + m.sup, m.tax, m.total, m.unpaid]);
+    return '<tr><td>' + monthLabel(ym) + '</td><td class="num">' + m.n + '</td><td class="num">' + fmt$(m.labor) + '</td><td class="num">' + fmt$(m.parts) +
+      '</td><td class="num">' + fmt$(m.sup) + '</td><td class="num">' + fmt$(m.parts + m.sup) + '</td><td class="num"><b>' + fmt$(m.tax) +
+      '</b></td><td class="num">' + fmt$(m.total) + '</td><td class="num" style="' + (m.unpaid > 0 ? 'color:var(--red);' : '') + '">' + (m.unpaid > 0 ? fmt$(m.unpaid) : '—') + '</td></tr>';
+  }).join('');
+  if(months.length){
+    lastTaxRows.push(['TOTAL', tot.n, tot.labor, tot.parts, tot.sup, tot.parts + tot.sup, tot.tax, tot.total, tot.unpaid]);
+    html += '<tr style="font-weight:700;border-top:2px solid var(--steel);"><td>Total</td><td class="num">' + tot.n + '</td><td class="num">' + fmt$(tot.labor) + '</td><td class="num">' + fmt$(tot.parts) +
+      '</td><td class="num">' + fmt$(tot.sup) + '</td><td class="num">' + fmt$(tot.parts + tot.sup) + '</td><td class="num">' + fmt$(tot.tax) + '</td><td class="num">' + fmt$(tot.total) + '</td><td class="num">' + (tot.unpaid > 0 ? fmt$(tot.unpaid) : '—') + '</td></tr>';
+  }
+  document.getElementById('taxBody').innerHTML = html || '<tr><td colspan="9" style="padding:16px;color:var(--ink-soft);">No invoices in this period.</td></tr>';
+
+  // ---- bought vs billed
+  const billed = {}, logged = {};
+  invs.forEach(j=>{ const ym = ymOf(j.d); if(yr === 'all' || ym.startsWith(yr)) billed[ym] = (billed[ym]||0) + (Number(j.pc)||0); });
+  purchases.forEach(pu=>{ const ym = ymOf(pu.date); if(ym && (yr === 'all' || ym.startsWith(yr))) logged[ym] = (logged[ym]||0) + (Number(pu.amount)||0); });
+  const rm = monthsOfYear(yr, new Set(Object.keys(billed).concat(Object.keys(logged))));
+  document.getElementById('reconBody').innerHTML = rm.map(ym=>{
+    const b = billed[ym]||0, l = logged[ym]||0, d = l - b;
+    const col = Math.abs(d) < 1 ? '' : (d > 0 ? 'color:var(--amber-dark);' : 'color:var(--red);');
+    return '<tr><td>' + monthLabel(ym) + '</td><td class="num">' + fmt$(b) + '</td><td class="num">' + fmt$(l) + '</td><td class="num" style="font-weight:700;' + col + '">' + (d > 0 ? '+' : '') + fmt$(d) + '</td></tr>';
+  }).join('') || '<tr><td colspan="4" style="padding:16px;color:var(--ink-soft);">Nothing to compare in this period.</td></tr>';
+
+  // ---- purchases with no matching invoice (hand-entered only)
+  const custDays = {};
+  invs.forEach(j=>{ const k = (j.c||'').trim().toLowerCase(); if(k){ (custDays[k] = custDays[k] || []).push(dayNum(j.d)); } });
+  const custKeys = Object.keys(custDays);
+  const flagged = [];
+  purchases.forEach(pu=>{
+    if(String(pu.notes||'').startsWith('Auto-logged')) return;
+    const ym = ymOf(pu.date);
+    if(yr !== 'all' && !(ym && ym.startsWith(yr))) return;
+    const ck = (pu.customer||'').trim().toLowerCase();
+    if(!ck){ flagged.push([pu, 'No customer entered']); return; }
+    const pd = dayNum(pu.date);
+    const hit = custKeys.some(k=> (k.includes(ck) || ck.includes(k)) && custDays[k].some(d=> Math.abs(d - pd) <= 60));
+    if(!hit) flagged.push([pu, 'No invoice for this customer within 60 days']);
+  });
+  flagged.sort((a,b)=> (dayNum(b[0].date)||0) - (dayNum(a[0].date)||0));
+  document.getElementById('unbilledCount').textContent = '(' + flagged.length + ')';
+  document.getElementById('unbilledBody').innerHTML = flagged.slice(0, 200).map(f=>
+    '<tr><td class="mono">' + escapeHtml(f[0].date||'—') + '</td><td>' + escapeHtml(f[0].source||'—') + '</td><td>' + escapeHtml(f[0].part||'—') +
+    '</td><td>' + escapeHtml(f[0].customer||'—') + '</td><td class="num">' + fmt$(f[0].amount) + '</td><td style="color:var(--ink-soft);font-size:12px;">' + f[1] + '</td></tr>'
+  ).join('') || '<tr><td colspan="6" style="padding:16px;color:var(--green);">✓ Every hand-entered purchase has a matching invoice.</td></tr>';
+}
+document.getElementById('repYear').addEventListener('change', renderReports);
+document.getElementById('exportTaxCsvBtn').addEventListener('click', ()=>{
+  const head = ['Month','Invoices','Labor','Parts','Shop Supplies','Taxable Sales','Tax Collected','Total Sales','Unpaid'];
+  const rows = [head.join(',')].concat(lastTaxRows.map(r=> r.map((v,i)=> i < 2 ? csvEscape(v) : Number(v).toFixed(2)).join(',')));
+  downloadFile('mike-automotive-sales-tax-' + (document.getElementById('repYear').value) + '.csv', rows.join('\n'), 'text/csv');
 });
+
+function refreshAllViews(){
+  try{ updateSyncBadge(); }catch(e){}
+  try{ renderCustomers(); }catch(e){ console.warn('customers render failed', e); }
+  try{ renderReports(); }catch(e){ console.warn('reports render failed', e); }
+}
+
+// ================= Install on phone (home-screen app) =================
+function setupInstallable(){
+  try{
+    const img = new Image();
+    img.onload = ()=>{
+      try{
+        const c = document.createElement('canvas'); c.width = 512; c.height = 512;
+        const ctx = c.getContext('2d');
+        ctx.fillStyle = '#212B38'; ctx.fillRect(0, 0, 512, 512);
+        const r = Math.min(400 / img.width, 400 / img.height);
+        const w = img.width * r, h = img.height * r;
+        ctx.drawImage(img, (512 - w) / 2, (512 - h) / 2, w, h);
+        const icon = c.toDataURL('image/png');
+        const touch = document.createElement('link'); touch.rel = 'apple-touch-icon'; touch.href = icon; document.head.appendChild(touch);
+        const manifest = {
+          name: 'Mike Automotive Shop Ledger', short_name: 'Mike Auto',
+          start_url: location.href.split('#')[0], scope: location.href.split('#')[0].replace(/[^/]*$/, ''),
+          display: 'standalone', background_color: '#212B38', theme_color: '#212B38',
+          icons: [{src: icon, sizes: '512x512', type: 'image/png', purpose: 'any'}]
+        };
+        const link = document.createElement('link'); link.rel = 'manifest';
+        link.href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], {type: 'application/manifest+json'}));
+        document.head.appendChild(link);
+      }catch(e){ console.warn('install icon failed', e); }
+    };
+    img.src = LOGO_DATA_URI;
+  }catch(e){ console.warn('installable setup failed', e); }
+}
 
 // ---------- init ----------
 rebuildLaborOptions();
-document.getElementById('fDate').valueAsDate = new Date();
+document.getElementById('fDate').value = todayStr();
 try{ addJobGroup(); }catch(e){ console.error('init addJobGroup failed', e); }
 try{ renderDtcChips(); }catch(e){ console.error('init renderDtcChips failed', e); }
 try{ calcTotals(); }catch(e){ console.error('init calcTotals failed', e); }
 try{ updateDocTypeUI(); }catch(e){ console.error('init updateDocTypeUI failed', e); }
-loadCustomInvoices();
-loadCustomLaborCodes();
-loadPurchases();
-try{ document.getElementById('pDate').valueAsDate = new Date(); }catch(e){}
-loadSheetUrl().then(()=>{
+const localLoads = Promise.all([loadCustomInvoices(), loadCustomLaborCodes(), loadPurchases()]);
+try{ document.getElementById('pDate').value = todayStr(); }catch(e){}
+Promise.all([loadSheetUrl().then(loadAppConfig), localLoads]).then(()=>{
   setSyncStatus(sheetUrl ? 'Connected — pulling…' : 'Not connected');
-  if(sheetUrl){
-    pullFromSheet(true);
-    pullLaborCodesFromSheet();
-    pullPurchasesFromSheet();
-  }
+  refreshAllViews();
+  if(sheetUrl) syncNow();
 });
+setupInstallable();
 
 window.addEventListener('load', ()=>{
   if(typeof Chart !== 'undefined' && (!trendChartInst || !custChartInst)){
