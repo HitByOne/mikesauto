@@ -10,6 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Mike Automotive — Shop Ledger</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js" defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" defer></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
@@ -448,12 +449,12 @@ body.locked .pin-lock-overlay{display:flex;}
       </div>
       <div class="panel-body" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
         <button class="btn btn-ghost btn-sm" id="exportCsvBtn">Export CSV (Excel)</button>
-        <button class="btn btn-ghost btn-sm" id="downloadBackupBtn">Download Full Backup (JSON)</button>
-        <button class="btn btn-ghost btn-sm" id="restoreBackupBtn">Restore Backup</button>
+        <button class="btn btn-ghost btn-sm" id="downloadBackupBtn">Download Full Backup (Excel)</button>
+        <button class="btn btn-ghost btn-sm" id="restoreBackupBtn">Restore From Backup File</button>
         <button class="btn btn-ghost btn-sm" id="exportPurchasesCsvBtn">Export Parts Log CSV</button>
         <button class="btn btn-amber btn-sm" id="findDuplicatesBtn">Find Duplicate Invoices</button>
         <button class="btn btn-ghost btn-sm" id="removeDuplicatesBtn">Auto-Remove Duplicate Invoices</button>
-        <input type="file" id="restoreFileInput" accept="application/json" style="display:none;">
+        <input type="file" id="restoreFileInput" accept=".xlsx,.xls,.csv,.json,application/json" style="display:none;">
         <span id="backupStatus" class="mono" style="font-size:11.5px;color:var(--green);"></span>
       </div>
       <div id="duplicatesReport" style="display:none;padding:0 18px 18px;"></div>
@@ -1859,14 +1860,52 @@ async function markBackupDone(){
   renderBackupReminder();
 }
 
+const INVOICE_COLS = [['id','ID'],['job','Job'],['c','Customer'],['v','Vehicle'],['d','Date'],['l','Labor ($)'],['p','Parts ($)'],['pc','Parts Cost ($)'],['tx','Tax ($)'],['pr','Profit ($)'],['t','Invoice Total ($)'],
+  ['phone','Phone'],['email','Email'],['engine','Engine'],['color','Color'],['vin','VIN'],['milesIn','Miles In'],['milesOut','Miles Out'],['plate','License Plate'],
+  ['symptoms','Symptoms / DTC Notes'],['dtc','DTC Codes'],['work','Work Performed'],['advisory','Advisory Note'],['groups','Job Groups (JSON)'],['savedAt','Saved At'],['isQuote','Is Quote'],
+  ['nextOilMiles','Next Oil Miles'],['nextOilDate','Next Oil Date'],['paid','Paid'],['paidDate','Paid Date'],['payMethod','Payment Method'],['sp','Shop Supplies ($)'],['txr','Tax Rate (%)'],['savedBy','Saved By']];
+const PURCHASE_COLS = [['id','ID'],['date','Date'],['source','Invoice # / Vendor'],['part','Part / Supplies'],['amount','Amount ($)'],['customer','Customer'],['vehicle','Vehicle'],['notes','Notes'],['addedAt','Logged At']];
+const LABOR_COLS = [['id','ID'],['d','Job Description'],['r','Rate ($/hr)'],['addedAt','Added At']];
+
+function recordsToRows(list, cols){
+  return list.map(item=>{
+    const row = {};
+    cols.forEach(c=>{
+      let v = item[c[0]];
+      if(v === undefined || v === null) v = '';
+      else if(typeof v === 'object') v = JSON.stringify(v);
+      row[c[1]] = v;
+    });
+    return row;
+  });
+}
+function rowsToRecords(rows, cols){
+  return rows.map(r=>{
+    const o = {};
+    cols.forEach(c=>{ if(r[c[1]] !== undefined && r[c[1]] !== '') o[c[0]] = r[c[1]]; });
+    return o;
+  }).filter(o=>Object.keys(o).length);
+}
+function boolish(v){ return v === true || String(v).toLowerCase() === 'true'; }
+
 function downloadBackup(){
-  const backup = {
-    version: 2, exportedAt: new Date().toISOString(),
-    invoices: customInvoices.map(stripLocal),
-    purchases: purchases.map(stripLocal),
-    laborCodes: customLaborCodes.map(stripLocal)
-  };
-  downloadFile('mike-automotive-backup-' + todayStr() + '.json', JSON.stringify(backup, null, 2), 'application/json');
+  const stamp = todayStr();
+  const invRows = recordsToRows(customInvoices, INVOICE_COLS);
+  const purRows = recordsToRows(purchases, PURCHASE_COLS);
+  const labRows = recordsToRows(customLaborCodes, LABOR_COLS);
+  if(typeof XLSX !== 'undefined'){
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(invRows, {header: INVOICE_COLS.map(c=>c[1])}), 'Invoices');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(purRows, {header: PURCHASE_COLS.map(c=>c[1])}), 'Parts Purchases');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(labRows, {header: LABOR_COLS.map(c=>c[1])}), 'Labor Codes');
+    XLSX.writeFile(wb, 'mike-automotive-backup-' + stamp + '.xlsx');
+  } else {
+    // Excel library did not load (offline?) — fall back to three CSV files that open in Excel
+    const toCsv = (rows, cols)=> [cols.map(c=>csvEscape(c[1])).join(',')].concat(rows.map(r=>cols.map(c=>csvEscape(r[c[1]])).join(','))).join('\n');
+    downloadFile('mike-automotive-backup-invoices-' + stamp + '.csv', toCsv(invRows, INVOICE_COLS), 'text/csv');
+    downloadFile('mike-automotive-backup-parts-' + stamp + '.csv', toCsv(purRows, PURCHASE_COLS), 'text/csv');
+    downloadFile('mike-automotive-backup-pricelist-' + stamp + '.csv', toCsv(labRows, LABOR_COLS), 'text/csv');
+  }
   markBackupDone();
 }
 
@@ -1887,11 +1926,32 @@ function renderBackupReminder(){
 async function restoreBackup(file){
   const status = document.getElementById('backupStatus');
   try{
-    const text = await file.text();
-    const parsed = JSON.parse(text);
-    const invoices = Array.isArray(parsed) ? parsed : (parsed.invoices || []);
-    const purch = Array.isArray(parsed) ? [] : (parsed.purchases || []);
-    const codes = Array.isArray(parsed) ? [] : (parsed.laborCodes || []);
+    const name = (file.name || '').toLowerCase();
+    let invoices = [], purch = [], codes = [];
+    if(name.endsWith('.xlsx') || name.endsWith('.xls')){
+      if(typeof XLSX === 'undefined') throw new Error('Excel reader not loaded');
+      const wb = XLSX.read(await file.arrayBuffer(), {type:'array'});
+      const get = n => wb.Sheets[n] ? XLSX.utils.sheet_to_json(wb.Sheets[n], {defval:''}) : [];
+      invoices = rowsToRecords(get('Invoices'), INVOICE_COLS);
+      purch = rowsToRecords(get('Parts Purchases'), PURCHASE_COLS);
+      codes = rowsToRecords(get('Labor Codes'), LABOR_COLS);
+    } else if(name.endsWith('.csv')){
+      const rows = parseCsv(await file.text());
+      const heads = rows.length ? Object.keys(rows[0]) : [];
+      if(heads.includes('Customer')) invoices = rowsToRecords(rows, INVOICE_COLS);
+      else if(heads.includes('Part / Supplies')) purch = rowsToRecords(rows, PURCHASE_COLS);
+      else if(heads.includes('Job Description')) codes = rowsToRecords(rows, LABOR_COLS);
+    } else {
+      const parsed = JSON.parse(await file.text());
+      invoices = Array.isArray(parsed) ? parsed : (parsed.invoices || []);
+      purch = Array.isArray(parsed) ? [] : (parsed.purchases || []);
+      codes = Array.isArray(parsed) ? [] : (parsed.laborCodes || []);
+    }
+    // clean up types (spreadsheet cells come back as text)
+    invoices = invoices.map(r=>{ const o = parseSheetRow(r); o.isQuote = boolish(r.isQuote); return o; });
+    purch = purch.map(r=>Object.assign({}, r, {amount: Number(r.amount)||0}));
+    codes = codes.map(r=>Object.assign({}, r, {r: Number(r.r)||0}));
+
     if(!invoices.length && !purch.length && !codes.length){ status.style.color='var(--red)'; status.textContent = 'Nothing found in that file.'; return; }
     let restored = 0;
     const add = async (arr, list, prefix, fields) => {
