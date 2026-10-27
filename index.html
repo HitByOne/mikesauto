@@ -2028,14 +2028,20 @@ function addJobGroup(vals){
 function addPartToGroup(groupId){
   const g = jobGroups.find(x=>x.id===groupId);
   if(!g) return;
-  g.parts.push({id:'p'+(liId++), desc:'', partNo:'', qty:1, cost:0, markup:0, vendor:''});
+  const np = {id:'p'+(liId++), desc:'', partNo:'', qty:1, cost:0, markup:0, vendor:''};
+  g.parts.push(np);
   renderJobGroups();
+  const el = document.querySelector('tr[data-pid="'+np.id+'"] .li-desc');
+  if(el && el.focus) el.focus();
 }
 function addLaborToGroup(groupId){
   const g = jobGroups.find(x=>x.id===groupId);
   if(!g) return;
-  g.labor.push({id:'l'+(liId++), desc:'', hours:0, rate:110});
+  const nl = {id:'l'+(liId++), desc:'', hours:0, rate:110};
+  g.labor.push(nl);
   renderJobGroups();
+  const el = document.querySelector('tr[data-lid="'+nl.id+'"] .job-labor-desc');
+  if(el && el.focus) el.focus();
 }
 
 function jobGroupSubtotal(g){
@@ -2047,7 +2053,36 @@ function jobGroupSubtotal(g){
   return laborTotal + partsTotal;
 }
 
-function renderJobGroups(){
+function syncStateFromDom(){
+  // Safety net: copy whatever is currently typed in the form into state before
+  // a re-render, so nothing is lost even if an input event didn't fire
+  // (autofill, datalist pick, paste, mobile keyboards).
+  const container = document.getElementById('jobGroupsContainer');
+  if(!container) return;
+  container.querySelectorAll('.job-group').forEach(card=>{
+    const g = jobGroups.find(x=>x.id===card.dataset.gid);
+    if(!g) return;
+    const nm = card.querySelector('.job-name'); if(nm) g.name = nm.value;
+    card.querySelectorAll('.job-labor-table tbody tr').forEach(tr=>{
+      const l = g.labor.find(x=>x.id===tr.dataset.lid); if(!l) return;
+      l.desc = tr.querySelector('.job-labor-desc').value;
+      l.hours = tr.querySelector('.job-labor-hours').value;
+      l.rate = tr.querySelector('.job-labor-rate').value;
+    });
+    card.querySelectorAll('.job-parts-table tbody tr').forEach(tr=>{
+      const r = g.parts.find(x=>x.id===tr.dataset.pid); if(!r) return;
+      r.desc = tr.querySelector('.li-desc').value;
+      r.partNo = tr.querySelector('.li-partno').value;
+      r.vendor = tr.querySelector('.li-vendor').value;
+      r.qty = tr.querySelector('.li-qty').value;
+      r.cost = tr.querySelector('.li-cost').value;
+      r.markup = tr.querySelector('.li-markup').value;
+    });
+  });
+}
+
+function renderJobGroups(focusSel){
+  syncStateFromDom();
   const container = document.getElementById('jobGroupsContainer');
   document.getElementById('jobsEmpty').style.display = jobGroups.length ? 'none':'block';
 
@@ -2109,7 +2144,7 @@ function renderJobGroups(){
   }).join('');
 
   // wire up each group
-  container.querySelectorAll('.job-group').forEach(card=>{
+  container.querySelectorAll('.job-group').forEach((card, idx)=>{
     const gid = card.dataset.gid;
     const g = jobGroups.find(x=>x.id===gid);
 
